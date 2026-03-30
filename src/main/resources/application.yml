@@ -1,0 +1,25 @@
+spring:
+  profiles:
+    active: dev # Aquí defines qué perfil usar (HU-T03-02)
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bookworm_db
+    username: postgres
+    password: 1234
+  jpa:
+    hibernate:
+      ddl-auto: validate # Flyway se encarga de la estructura
+    show-sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+# Configuración para Swagger / OpenAPI (HU-T02-04)
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
