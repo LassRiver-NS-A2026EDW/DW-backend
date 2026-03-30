@@ -7,6 +7,12 @@ spring:
   config:
     activate:
       on-profile: dev
+  security:
+    user:
+      name: admin
+      password: 1234
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
   datasource:
     url: jdbc:postgresql://localhost:5432/bookworm_db
     username: postgres
@@ -19,6 +25,10 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+logging:
+    level:
+      org.springframework.security: DEBUG
+      org.hibernate.SQL: DEBUG
 # Configuración para Swagger / OpenAPI (HU-T02-04)
 springdoc:
   swagger-ui:
