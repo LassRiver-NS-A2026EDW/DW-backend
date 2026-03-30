@@ -57,4 +57,18 @@ public class GlobalExceptionHandler {
         // En la vida real, aquí meterías un log.error() para ver qué falló en consola
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
+
+    // 5. Manejo de errores de credencials incorrectas
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    public ResponseEntity<ApiError> handleBadCredentials(
+            org.springframework.security.authentication.BadCredentialsException ex, HttpServletRequest req) {
+        // Retornamos 401 Unauthorized con un mensaje genérico por seguridad
+        ApiError body = new ApiError(
+                "INVALID_CREDENTIALS",
+                "Correo electrónico o contraseña incorrectos.",
+                "warning",
+                Instant.now(),
+                req.getRequestURI());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
 }
