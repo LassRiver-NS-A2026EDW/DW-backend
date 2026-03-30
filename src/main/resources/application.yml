@@ -27,8 +27,8 @@ spring:
 
 logging:
     level:
-      org.springframework.security: DEBUG
-      org.hibernate.SQL: DEBUG
+      '[org.springframework.security]': DEBUG
+      '[org.hibernate.SQL]': DEBUG
 # Configuración para Swagger / OpenAPI (HU-T02-04)
 springdoc:
   swagger-ui:
