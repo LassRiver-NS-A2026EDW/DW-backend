@@ -1,0 +1,108 @@
+# =============================================================================
+# 🔐 ANÁLISIS SAST CON GITHUB CodeQL
+# =============================================================================
+# Descripción: Escaneo de seguridad estática (SAST) del código fuente Java
+# usando GitHub CodeQL, que es nativo de GitHub y 100% gratuito.
+#
+# CodeQL analiza el código buscando:
+# - Inyecciones SQL
+# - Inyecciones de comandos (OS Command Injection)
+# - Cross-Site Scripting (XSS)
+# - Deserialización insegura
+# - Exposición de datos sensibles
+# - Vulnerabilidades de path traversal
+# - Y muchos más patrones de seguridad
+#
+# Se ejecuta en:
+# - Push a test y main
+# - Pull Requests hacia test y main
+# - Semanalmente (cron) para detectar vulnerabilidades nuevas
+# =============================================================================
+
+name: "🔐 CodeQL Security Analysis"
+
+# ======================== TRIGGERS ========================
+on:
+  # Push a ramas protegidas
+  push:
+    branches:
+      - test
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+  # Pull Requests hacia ramas protegidas
+  pull_request:
+    branches:
+      - test
+      - main
+
+  # Ejecución programada: Cada lunes a las 6:00 AM UTC
+  schedule:
+    - cron: "0 6 * * 1"
+
+# ======================== PERMISOS ========================
+permissions:
+  actions: read
+  contents: read
+  security-events: write  # Requerido para subir resultados SARIF
+
+# ======================== JOBS ========================
+jobs:
+  codeql-analysis:
+    name: "🔍 Análisis CodeQL (Java)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Lenguajes a analizar. CodeQL soporta:
+        # 'cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'swift'
+        language: ["java-kotlin"]
+
+    steps:
+      # --- Paso 1: Clonar el repositorio ---
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      # --- Paso 2: Configurar JDK (necesario para compilar Java) ---
+      - name: "☕ Configurar JDK 25"
+        uses: actions/setup-java@v4
+        with:
+          java-version: "25"
+          distribution: "temurin"
+
+      # --- Paso 3: Cache de Maven ---
+      - name: "💾 Cache de dependencias Maven"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      # --- Paso 4: Inicializar CodeQL ---
+      # Configura el motor de análisis para el lenguaje especificado.
+      # 'security-and-quality' incluye reglas de seguridad y calidad.
+      - name: "🔧 Inicializar CodeQL"
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Usar el conjunto de consultas extendido (seguridad + calidad)
+          queries: security-and-quality
+
+      # --- Paso 5: Auto-build (CodeQL compila el proyecto) ---
+      # CodeQL necesita compilar el código Java para analizarlo.
+      # Usamos autobuild que detecta Maven automáticamente.
+      - name: "🔨 Auto-build del proyecto"
+        uses: github/codeql-action/autobuild@v3
+
+      # --- Paso 6: Ejecutar análisis CodeQL ---
+      # Los resultados se suben automáticamente a la pestaña
+      # "Security" del repositorio en GitHub.
+      - name: "🔍 Ejecutar análisis CodeQL"
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

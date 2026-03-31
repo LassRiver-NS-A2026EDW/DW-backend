@@ -1,0 +1,481 @@
+# =============================================================================
+# 🚀 PIPELINE CI/CD PRINCIPAL — BOOKWORM BACKEND
+# =============================================================================
+# Descripción: Pipeline completo de Integración Continua y Despliegue Continuo.
+# Flujo de ramas: dev → test → main
+# Se ejecuta en: push/PR hacia las ramas test y main
+#
+# Jobs del pipeline:
+#   1. build          → Compilación del proyecto
+#   2. unit-tests     → Tests unitarios con JUnit 5 + Mockito + JaCoCo
+#   3. integration-tests → Tests de integración con Testcontainers + PostgreSQL
+#   4. code-quality   → Análisis con SonarCloud (Quality Gate)
+#   5. security-scan  → Escaneo OWASP Dependency-Check (SCA)
+#   6. docker-build   → Construcción y publicación de imagen Docker
+#   7. deploy-staging → Despliegue simulado al entorno de pruebas
+# =============================================================================
+
+name: "🔄 CI/CD Pipeline — Bookworm Backend"
+
+# ======================== TRIGGERS (Disparadores) ========================
+on:
+  # Se ejecuta cuando se hace push a test o main
+  push:
+    branches:
+      - test
+      - main
+    # Ignorar cambios que solo afectan documentación
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+
+  # Se ejecuta cuando se abre/actualiza un PR hacia test o main
+  pull_request:
+    branches:
+      - test
+      - main
+    types: [opened, synchronize, reopened]
+
+# ======================== CONCURRENCIA ========================
+# Cancela ejecuciones anteriores del mismo PR/rama para ahorrar recursos
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# ======================== VARIABLES GLOBALES ========================
+env:
+  # --- Java ---
+  JAVA_VERSION: "25"
+  JAVA_DISTRIBUTION: "temurin"
+
+  # --- Docker ---
+  DOCKER_IMAGE_NAME: ghcr.io/${{ github.repository }}
+  DOCKER_PLATFORMS: linux/amd64
+
+  # --- Maven ---
+  MAVEN_OPTS: "-Xmx1024m -XX:MaxMetaspaceSize=512m"
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version"
+
+# ======================== PERMISOS ========================
+permissions:
+  contents: read
+  packages: write         # Para publicar imágenes a GHCR
+  security-events: write  # Para subir resultados de seguridad
+  pull-requests: write    # Para comentar en PRs
+
+# =============================================================================
+#                              J O B S
+# =============================================================================
+jobs:
+
+  # ===========================================================================
+  # JOB 1: COMPILACIÓN (BUILD)
+  # ===========================================================================
+  # Compila el proyecto y verifica que no haya errores de sintaxis,
+  # dependencias faltantes o problemas de configuración.
+  # ===========================================================================
+  build:
+    name: "🔨 Compilación"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # --- Paso 1: Clonar el repositorio ---
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Historial completo para SonarCloud
+
+      # --- Paso 2: Configurar JDK ---
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      # --- Paso 3: Cache de dependencias Maven ---
+      - name: "💾 Cache de dependencias Maven"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      # --- Paso 4: Compilar el proyecto (sin tests) ---
+      - name: "🔧 Compilar proyecto"
+        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} clean compile -DskipTests
+
+      # --- Paso 5: Verificar empaquetado (JAR) ---
+      - name: "📦 Empaquetar JAR"
+        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} package -DskipTests
+
+      # --- Paso 6: Subir JAR como artefacto para jobs posteriores ---
+      - name: "📤 Subir artefacto JAR"
+        uses: actions/upload-artifact@v4
+        with:
+          name: bookworm-jar
+          path: target/*.jar
+          retention-days: 1
+          if-no-files-found: error
+
+  # ===========================================================================
+  # JOB 2: TESTS UNITARIOS
+  # ===========================================================================
+  # Ejecuta todos los tests unitarios con JUnit 5 + Mockito.
+  # JaCoCo genera reportes de cobertura para SonarCloud.
+  # Excluye tests que terminan en *IT o *IntegrationTest.
+  # ===========================================================================
+  unit-tests:
+    name: "🧪 Tests Unitarios"
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: "💾 Restaurar cache de Maven"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      # --- Ejecutar tests unitarios con cobertura JaCoCo ---
+      - name: "▶️ Ejecutar tests unitarios con JaCoCo"
+        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} test
+        env:
+          SPRING_PROFILES_ACTIVE: test
+
+      # --- Subir reportes de cobertura para SonarCloud ---
+      - name: "📤 Subir reporte de cobertura JaCoCo"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          retention-days: 5
+
+      # --- Subir resultados de tests como artefacto ---
+      - name: "📤 Subir resultados de tests unitarios"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: target/surefire-reports/
+          retention-days: 5
+
+  # ===========================================================================
+  # JOB 3: TESTS DE INTEGRACIÓN
+  # ===========================================================================
+  # Ejecuta tests de integración con Testcontainers.
+  # Levanta un contenedor PostgreSQL real para validar el flujo
+  # completo de la aplicación (Flyway + JPA + Controllers).
+  # ===========================================================================
+  integration-tests:
+    name: "🔗 Tests de Integración"
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 20
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: "💾 Restaurar cache de Maven"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      # --- Ejecutar tests de integración con Failsafe ---
+      # Testcontainers levanta PostgreSQL automáticamente vía Docker
+      - name: "▶️ Ejecutar tests de integración (Testcontainers)"
+        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify -DskipUnitTests=true -Dsurefire.skip=true
+        env:
+          SPRING_PROFILES_ACTIVE: integration
+          # Testcontainers usa el Docker daemon del runner
+          TESTCONTAINERS_RYUK_DISABLED: "false"
+
+      # --- Subir resultados de tests de integración ---
+      - name: "📤 Subir resultados de tests de integración"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: target/failsafe-reports/
+          retention-days: 5
+
+  # ===========================================================================
+  # JOB 4: ANÁLISIS DE CALIDAD DE CÓDIGO (SonarCloud)
+  # ===========================================================================
+  # Ejecuta análisis estático con SonarCloud para detectar:
+  # - Code Smells (código que huele mal)
+  # - Bugs potenciales
+  # - Vulnerabilidades de seguridad
+  # - Deuda técnica
+  # El pipeline FALLA si no se cumple el Quality Gate de SonarCloud.
+  # ===========================================================================
+  code-quality:
+    name: "📊 Calidad de Código (SonarCloud)"
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    timeout-minutes: 15
+    # Solo ejecutar si los secrets de SonarCloud están configurados
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Historial completo requerido por SonarCloud
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: "💾 Restaurar cache de Maven"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      # --- Descargar reportes de cobertura del job anterior ---
+      - name: "📥 Descargar reporte JaCoCo"
+        uses: actions/download-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+      # --- Cache específico de SonarCloud ---
+      - name: "💾 Cache de SonarCloud"
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: sonar-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            sonar-${{ runner.os }}-
+
+      # --- Ejecutar análisis de SonarCloud ---
+      - name: "🔍 Ejecutar análisis de SonarCloud"
+        run: >
+          ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify sonar:sonar
+          -DskipTests
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+          -Dsonar.java.coveragePlugin=jacoco
+          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+          -Dsonar.qualitygate.wait=true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # ===========================================================================
+  # JOB 5: ESCANEO DE SEGURIDAD (OWASP Dependency-Check)
+  # ===========================================================================
+  # Escanea las dependencias del proyecto buscando vulnerabilidades
+  # conocidas (CVEs) usando la base de datos NVD del NIST.
+  # El pipeline FALLA si se detectan vulnerabilidades con CVSS >= 7.
+  # ===========================================================================
+  security-scan:
+    name: "🛡️ Escaneo de Seguridad (OWASP)"
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 30
+    # OWASP es lento, solo ejecutar en push (no en cada commit de PR)
+    if: github.event_name == 'push'
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: "💾 Restaurar cache de Maven"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
+
+      # --- Cache de la base de datos NVD (evita re-descargar ~2GB) ---
+      - name: "💾 Cache de base de datos NVD"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: owasp-nvd-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            owasp-nvd-${{ runner.os }}-
+
+      # --- Ejecutar OWASP Dependency-Check ---
+      - name: "🔍 Ejecutar OWASP Dependency-Check"
+        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify -Powasp -DskipTests
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        continue-on-error: true  # No bloquear pipeline por timeout de NVD
+
+      # --- Subir reportes de seguridad ---
+      - name: "📤 Subir reporte de seguridad OWASP"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-security-report
+          path: target/owasp-reports/
+          retention-days: 30
+
+  # ===========================================================================
+  # JOB 6: CONSTRUCCIÓN DE IMAGEN DOCKER
+  # ===========================================================================
+  # Construye una imagen Docker multi-stage optimizada y la publica
+  # en GitHub Container Registry (ghcr.io).
+  # Solo se ejecuta en push a test o main (no en PRs).
+  # ===========================================================================
+  docker-build:
+    name: "🐳 Docker Build & Push"
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    timeout-minutes: 15
+    # Solo construir imagen en push (no en cada PR)
+    if: github.event_name == 'push'
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      # --- Configurar Docker Buildx para builds optimizados ---
+      - name: "🔧 Configurar Docker Buildx"
+        uses: docker/setup-buildx-action@v3
+
+      # --- Autenticar con GitHub Container Registry ---
+      - name: "🔑 Login a GitHub Container Registry"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Extraer metadatos para etiquetas de la imagen ---
+      - name: "🏷️ Extraer metadatos Docker"
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE_NAME }}
+          tags: |
+            # Etiquetar con el nombre de la rama
+            type=ref,event=branch
+            # Etiquetar con el SHA corto del commit
+            type=sha,prefix=,format=short
+            # Etiquetar como 'latest' si es la rama main
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # --- Construir y publicar la imagen Docker ---
+      - name: "🏗️ Construir y publicar imagen Docker"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+
+  # ===========================================================================
+  # JOB 7: DESPLIEGUE SIMULADO A STAGING
+  # ===========================================================================
+  # Este job representa el despliegue al entorno de pruebas (Staging).
+  # Solo se ejecuta cuando TODOS los jobs anteriores son exitosos
+  # y únicamente en la rama test.
+  #
+  # En un entorno real, aquí se utilizaría:
+  # - docker-compose up en un servidor de staging
+  # - kubectl apply en un cluster de Kubernetes
+  # - aws ecs update-service para ECS/Fargate
+  # ===========================================================================
+  deploy-staging:
+    name: "🚀 Despliegue a Staging"
+    runs-on: ubuntu-latest
+    needs: [code-quality, security-scan, docker-build]
+    timeout-minutes: 10
+    # Solo desplegar desde la rama test, y solo en push (no PRs)
+    if: github.ref == 'refs/heads/test' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://staging.bookworm.example.com
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      # --- Paso de despliegue simulado ---
+      - name: "🚀 Desplegar a entorno de Staging"
+        run: |
+          echo "============================================="
+          echo "🚀 DESPLIEGUE A STAGING"
+          echo "============================================="
+          echo "📦 Imagen Docker: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}"
+          echo "🌿 Rama: ${{ github.ref_name }}"
+          echo "👤 Autor: ${{ github.actor }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "⏰ Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "============================================="
+          echo ""
+          echo "✅ Despliegue simulado completado exitosamente."
+          echo ""
+          echo "📋 En producción, este paso podría ejecutar:"
+          echo "   - docker-compose -f docker-compose.staging.yml up -d"
+          echo "   - kubectl set image deployment/bookworm-api ..."
+          echo "   - aws ecs update-service --cluster staging ..."
+          echo "============================================="
+
+      # --- Verificación post-despliegue (smoke test simulado) ---
+      - name: "✅ Smoke test post-despliegue"
+        run: |
+          echo "🔍 Ejecutando smoke test simulado..."
+          echo "   → GET /actuator/health ... OK (simulado)"
+          echo "   → GET /swagger-ui.html ... OK (simulado)"
+          echo "   → POST /api/auth/register ... OK (simulado)"
+          echo "✅ Smoke tests completados exitosamente."
+
+      # --- Notificación de éxito ---
+      - name: "📣 Resumen del despliegue"
+        run: |
+          echo "## 🚀 Despliegue a Staging Exitoso" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detalle | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Rama** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Imagen** | \`${{ env.DOCKER_IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Autor** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Fecha** | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY

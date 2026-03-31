@@ -1,0 +1,40 @@
+# =========================================================================
+# PERFIL DE CONFIGURACIÓN PARA TESTS DE INTEGRACIÓN
+# =========================================================================
+# Este perfil usa Testcontainers para levantar un PostgreSQL real en Docker.
+# Las propiedades de conexión se inyectan dinámicamente desde
+# AbstractIntegrationTest.java usando @DynamicPropertySource.
+# Flyway ejecuta las migraciones reales del proyecto.
+# =========================================================================
+
+spring:
+  # --- Datasource: Inyectado dinámicamente por Testcontainers ---
+  # Las propiedades spring.datasource.url, username, password
+  # se configuran en AbstractIntegrationTest.java
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+  # --- JPA: Validar schema (Flyway se encarga de crearlo) ---
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  # --- Flyway: Habilitado (ejecuta migraciones reales) ---
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  # --- Security: Desactivar para tests de integración ---
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
+# --- Logging ---
+logging:
+  level:
+    root: WARN
+    com.lassriver.bookworm: INFO
+    org.testcontainers: INFO
