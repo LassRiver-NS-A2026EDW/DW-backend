@@ -34,3 +34,4 @@ build/
 .agents
 
 .env
+env.properties
