@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -47,11 +48,15 @@ class UserServiceImplTest {
         request.setName("Brian");
         request.setEmail("brian@test.com");
         request.setPassword("password123");
+        request.setGender("M");
+        request.setBirthDate(LocalDate.of(2000, 1, 1));
 
         User savedUser = new User();
         savedUser.setId(1L);
         savedUser.setName(request.getName());
         savedUser.setEmail(request.getEmail());
+        savedUser.setGender(request.getGender());
+        savedUser.setBirthDate(request.getBirthDate());
 
         when(userRepository.existsByEmail(anyString())).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("$argon2id$v=19$m=32768,t=2,p=1$hash");

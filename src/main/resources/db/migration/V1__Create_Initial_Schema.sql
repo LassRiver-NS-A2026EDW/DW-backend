@@ -9,14 +9,3 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Tabla de Libros
-CREATE TABLE books (
-    id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    author VARCHAR(255) NOT NULL,
-    isbn VARCHAR(20) UNIQUE NOT NULL,
-    category VARCHAR(100),
-    language VARCHAR(10),
-    status VARCHAR(20) DEFAULT 'ACTIVE', -- Para desactivar libros (HU-F05-02)
-    cover_url TEXT
-);
