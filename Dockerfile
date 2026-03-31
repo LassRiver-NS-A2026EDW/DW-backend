@@ -6,7 +6,7 @@
 # =========================================================================
 
 # ======================== STAGE 1: BUILD ========================
-FROM eclipse-temurin:25-jdk AS builder
+FROM eclipse-temurin:21-jdk AS builder
 
 # Metadatos de la imagen
 LABEL maintainer="LassRiver Team"
@@ -34,7 +34,7 @@ RUN ./mvnw clean package -DskipTests -B \
     && mv target/*.jar target/app.jar
 
 # ======================== STAGE 2: RUNTIME ========================
-FROM eclipse-temurin:25-jre-alpine AS runtime
+FROM eclipse-temurin:21-jre-alpine AS runtime
 
 # Metadatos de la imagen final
 LABEL maintainer="LassRiver Team"

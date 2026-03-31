@@ -3,11 +3,14 @@
 # =========================================================================
 # Este perfil usa H2 en memoria para ejecutar tests rápidos sin necesidad
 # de un servidor PostgreSQL externo ni Docker.
-# Se activa automáticamente en los tests unitarios que usan @SpringBootTest
-# con @ActiveProfiles("test")
+# Se activa con @ActiveProfiles("test") o SPRING_PROFILES_ACTIVE=test
 # =========================================================================
 
 spring:
+  # --- Desactivar importación de env.properties (no existe en CI) ---
+  config:
+    import: optional:file:env.properties
+
   # --- Datasource: H2 en memoria (rápido, sin Docker) ---
   datasource:
     url: jdbc:h2:mem:bookworm_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
@@ -23,7 +26,6 @@ spring:
     properties:
       hibernate:
         format_sql: false
-        dialect: org.hibernate.dialect.H2Dialect
 
   # --- Flyway: Deshabilitado para tests unitarios ---
   flyway:
