@@ -1,5 +1,7 @@
 package com.lassriver.bookworm.dtos.response;
 
+import java.time.LocalDate;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -10,4 +12,6 @@ public class UserRegistrationResponse {
     private String name;
     private String email;
     private String message;
+    private String gender;
+    private LocalDate birthDate;
 }

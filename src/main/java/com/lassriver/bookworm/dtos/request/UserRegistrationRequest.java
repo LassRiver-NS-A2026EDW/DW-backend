@@ -1,9 +1,8 @@
 package com.lassriver.bookworm.dtos.request;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Data;
+import java.time.LocalDate;
 
 @Data
 public class UserRegistrationRequest {
@@ -19,4 +18,12 @@ public class UserRegistrationRequest {
     @NotBlank(message = "La contraseña no puede estar vacía")
     @Size(min = 8, message = "La contraseña debe tener al menos 8 caracteres")
     private String password;
+
+    @NotBlank(message = "El género es obligatorio")
+    @Pattern(regexp = "^(M|F|N/R|Other)$", message = "El género debe ser 'M', 'F', 'N/R' u 'Other'")
+    private String gender;
+
+    @NotNull(message = "La fecha de nacimiento es obligatoria")
+    @Past(message = "La fecha de nacimiento debe estar en el pasado")
+    private LocalDate birthDate;
 }

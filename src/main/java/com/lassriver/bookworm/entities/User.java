@@ -2,6 +2,8 @@ package com.lassriver.bookworm.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -31,6 +33,12 @@ public class User {
 
     @Column(length = 10)
     private String language; // ej: "es"
+
+    @Column(length = 20)
+    private String gender; // "MALE", "FEMALE", "OTHER", "N/R"
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

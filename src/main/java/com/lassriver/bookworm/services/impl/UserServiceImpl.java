@@ -39,6 +39,8 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getPassword())); // Argon2id (HU-T01-03)
         user.setRole("USER");
         user.setLanguage("es");
+        user.setGender(request.getGender());
+        user.setBirthDate(request.getBirthDate());
 
         User savedUser = userRepository.save(user);
         log.info("Usuario registrado: {}", savedUser.getEmail());
@@ -56,8 +58,7 @@ public class UserServiceImpl implements UserService {
         // 1. Autenticar: Spring Security usa el Argon2id para comparar (HU-F01-02)
         // Si falla, lanza una excepción que capturará nuestro GlobalExceptionHandler
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
         // 2. Si llegamos aquí, las credenciales son válidas
         User user = userRepository.findByEmail(request.getEmail())
