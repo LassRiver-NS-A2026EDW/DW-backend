@@ -1,6 +1,7 @@
 package com.lassriver.bookworm.dtos.response;
 
 import java.time.LocalDate;
+import com.lassriver.bookworm.entities.enums.Gender;
 
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +13,6 @@ public class UserRegistrationResponse {
     private String name;
     private String email;
     private String message;
-    private String gender;
+    private Gender gender;
     private LocalDate birthDate;
 }

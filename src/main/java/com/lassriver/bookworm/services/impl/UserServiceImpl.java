@@ -49,6 +49,8 @@ public class UserServiceImpl implements UserService {
                 .id(savedUser.getId())
                 .name(savedUser.getName())
                 .email(savedUser.getEmail())
+                .gender(savedUser.getGender())
+                .birthDate(savedUser.getBirthDate())
                 .message("Usuario registrado exitosamente.")
                 .build();
     }

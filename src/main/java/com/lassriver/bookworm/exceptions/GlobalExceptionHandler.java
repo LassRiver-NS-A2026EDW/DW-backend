@@ -49,7 +49,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    // 4. Errores no controlados 500 (Requisito HU-T02-02 AC-2)
+    // 4. Errores de formato en la petición (ej. valor de enum inválido)
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException ex, HttpServletRequest req) {
+        String msg = "Cuerpo de la petición mal formado o valores inválidos.";
+
+        if (ex.getCause() instanceof com.fasterxml.jackson.databind.exc.InvalidFormatException) {
+            com.fasterxml.jackson.databind.exc.InvalidFormatException ife = (com.fasterxml.jackson.databind.exc.InvalidFormatException) ex
+                    .getCause();
+            if (ife.getTargetType() != null && ife.getTargetType().isEnum()) {
+                msg = String.format("Valor inválido: '%s' para el campo '%s'. Los valores permitidos son: %s",
+                        ife.getValue(),
+                        ife.getPath().get(ife.getPath().size() - 1).getFieldName(),
+                        java.util.Arrays.toString(ife.getTargetType().getEnumConstants()));
+            }
+        }
+
+        ApiError body = new ApiError("BAD_REQUEST", msg, "error",
+                Instant.now(), req.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    // 5. Errores no controlados 500 (Requisito HU-T02-02 AC-2)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGenericException(Exception ex, HttpServletRequest req) {
         ApiError body = new ApiError("INTERNAL_SERVER_ERROR", "Ocurrió un error inesperado en el servidor.", "error",

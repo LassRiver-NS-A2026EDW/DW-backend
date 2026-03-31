@@ -4,6 +4,8 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 import java.time.LocalDate;
 
+import com.lassriver.bookworm.entities.enums.Gender;
+
 @Data
 public class UserRegistrationRequest {
 
@@ -19,11 +21,11 @@ public class UserRegistrationRequest {
     @Size(min = 8, message = "La contraseña debe tener al menos 8 caracteres")
     private String password;
 
-    @NotBlank(message = "El género es obligatorio")
-    @Pattern(regexp = "^(M|F|N/R|Other)$", message = "El género debe ser 'M', 'F', 'N/R' u 'Other'")
-    private String gender;
+    @NotNull(message = "El género es obligatorio")
+    private Gender gender;
 
     @NotNull(message = "La fecha de nacimiento es obligatoria")
     @Past(message = "La fecha de nacimiento debe estar en el pasado")
     private LocalDate birthDate;
+
 }

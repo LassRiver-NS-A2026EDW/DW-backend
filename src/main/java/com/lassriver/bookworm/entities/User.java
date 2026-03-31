@@ -6,6 +6,8 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.lassriver.bookworm.entities.enums.Gender;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -34,8 +36,9 @@ public class User {
     @Column(length = 10)
     private String language; // ej: "es"
 
+    @Enumerated(EnumType.STRING) // Importante para que en la DB se vea el texto
     @Column(length = 20)
-    private String gender; // "MALE", "FEMALE", "OTHER", "N/R"
+    private Gender gender; // "MALE", "FEMALE", "OTHER", "N/R"
 
     @Column(name = "birth_date")
     private LocalDate birthDate;
@@ -47,4 +50,5 @@ public class User {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+
 }

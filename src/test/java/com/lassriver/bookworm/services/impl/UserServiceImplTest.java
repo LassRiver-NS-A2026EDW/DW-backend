@@ -8,6 +8,7 @@ import com.lassriver.bookworm.entities.User;
 import com.lassriver.bookworm.exceptions.EmailAlreadyExistsException;
 import com.lassriver.bookworm.repositories.UserRepository;
 import com.lassriver.bookworm.security.JwtService;
+import com.lassriver.bookworm.entities.enums.Gender;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -48,7 +49,7 @@ class UserServiceImplTest {
         request.setName("Brian");
         request.setEmail("brian@test.com");
         request.setPassword("password123");
-        request.setGender("M");
+        request.setGender(Gender.F);
         request.setBirthDate(LocalDate.of(2000, 1, 1));
 
         User savedUser = new User();
