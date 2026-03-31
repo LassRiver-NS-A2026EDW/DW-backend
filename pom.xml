@@ -30,7 +30,7 @@
 		<java.version>25</java.version>
 		<!-- ================ Versiones de dependencias CI/CD ================ -->
 		<testcontainers.version>1.20.4</testcontainers.version>
-		<jacoco.version>0.8.12</jacoco.version>
+		<jacoco.version>0.8.14</jacoco.version>
 		<owasp.dependency-check.version>11.1.1</owasp.dependency-check.version>
 		<!-- ================ Configuración de SonarCloud ================ -->
 		<sonar.organization>${env.SONAR_ORGANIZATION}</sonar.organization>
