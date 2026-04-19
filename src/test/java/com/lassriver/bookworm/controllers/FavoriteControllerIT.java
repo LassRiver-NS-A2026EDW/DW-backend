@@ -1,6 +1,5 @@
 package com.lassriver.bookworm.controllers;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lassriver.bookworm.BaseSecurityIntegrationTest;
 import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.entities.User;
@@ -31,9 +30,6 @@ class FavoriteControllerIT extends BaseSecurityIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
     private UserFavoriteRepository userFavoriteRepository;
 
     @Autowired
@@ -49,7 +45,6 @@ class FavoriteControllerIT extends BaseSecurityIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     private String userToken;
-    private String otherUserToken;
 
     private User user;
     private User otherUser;
@@ -78,7 +73,6 @@ class FavoriteControllerIT extends BaseSecurityIntegrationTest {
                 .build());
 
         userToken = jwtService.generateToken(user);
-        otherUserToken = jwtService.generateToken(otherUser);
 
         book = bookRepository.save(Book.builder()
                 .title("Clean Code")

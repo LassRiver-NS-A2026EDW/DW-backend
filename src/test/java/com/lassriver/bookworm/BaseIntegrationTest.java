@@ -39,6 +39,7 @@ public abstract class BaseIntegrationTest {
      * Se levanta una sola vez para todos los tests de integración.
      * Usa la misma versión de PostgreSQL que producción (14+).
      */
+    @SuppressWarnings("resource")
     @Container
     static final PostgreSQLContainer<?> POSTGRES_CONTAINER =
             new PostgreSQLContainer<>("postgres:16-alpine")
