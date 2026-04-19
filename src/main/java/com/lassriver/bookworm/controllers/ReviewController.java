@@ -1,0 +1,33 @@
+package com.lassriver.bookworm.controllers;
+
+import com.lassriver.bookworm.dtos.request.ReviewCreateRequest;
+import com.lassriver.bookworm.dtos.response.ReviewResponse;
+import com.lassriver.bookworm.services.ReviewService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/reviews")
+@RequiredArgsConstructor
+public class ReviewController {
+
+    private final ReviewService reviewService;
+
+    @PostMapping
+    public ResponseEntity<ReviewResponse> createReview(
+            @Valid @RequestBody ReviewCreateRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        ReviewResponse response = reviewService.createReview(request, userDetails.getUsername());
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @PatchMapping("/{id}/hide")
+    public ResponseEntity<ReviewResponse> hideReview(@PathVariable Long id) {
+        return ResponseEntity.ok(reviewService.hideReview(id));
+    }
+}

@@ -78,6 +78,12 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
+      - name: Verificar Docker para Testcontainers
+        run: |
+          docker version
+          docker info
+          docker pull postgres:16-alpine
+
       - name: Ejecutar tests de integración
         run: mvn ${{ env.MAVEN_CLI_OPTS }} failsafe:integration-test failsafe:verify
         env:

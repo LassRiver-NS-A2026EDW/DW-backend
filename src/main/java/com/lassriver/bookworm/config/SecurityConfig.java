@@ -4,6 +4,7 @@ import com.lassriver.bookworm.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -46,6 +47,10 @@ public class SecurityConfig {
                         // Endpoints públicos de Auth y Documentación (HU-T02-04)
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/books").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/books/*").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/books/*/status").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/reviews/*/hide").hasAuthority("ADMIN")
 
                         // Cualquier otra petición requiere el token JWT
                         .anyRequest().authenticated())

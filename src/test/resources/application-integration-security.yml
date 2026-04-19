@@ -1,0 +1,22 @@
+spring:
+  main:
+    log-startup-info: false
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+logging:
+  level:
+    root: WARN
+    com.lassriver.bookworm: INFO
+    org.testcontainers: INFO
+    org.springframework.boot.autoconfigure: WARN

@@ -31,7 +31,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("integration")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 public abstract class BaseIntegrationTest {
 
     /**
@@ -39,6 +39,7 @@ public abstract class BaseIntegrationTest {
      * Se levanta una sola vez para todos los tests de integración.
      * Usa la misma versión de PostgreSQL que producción (14+).
      */
+    @SuppressWarnings("resource")
     @Container
     static final PostgreSQLContainer<?> POSTGRES_CONTAINER =
             new PostgreSQLContainer<>("postgres:16-alpine")
