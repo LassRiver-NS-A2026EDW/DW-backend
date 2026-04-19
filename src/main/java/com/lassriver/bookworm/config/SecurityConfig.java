@@ -50,6 +50,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/books").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/books/*").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/books/*/status").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/reviews/*/hide").hasAuthority("ADMIN")
 
                         // Cualquier otra petición requiere el token JWT
                         .anyRequest().authenticated())
