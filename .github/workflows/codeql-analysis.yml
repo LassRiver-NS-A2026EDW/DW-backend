@@ -7,17 +7,9 @@
 name: "🔐 CodeQL Security Analysis"
 
 on:
-  push:
-    branches:
-      - test
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".gitignore"
-
   pull_request:
     branches:
-      - test
+      - main
     types: [opened, synchronize, reopened]
 
   schedule:
