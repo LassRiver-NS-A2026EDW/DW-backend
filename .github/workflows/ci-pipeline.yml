@@ -101,15 +101,15 @@ jobs:
 
       # --- Paso 3: Dar permisos de ejecución al Maven Wrapper ---
       - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
+        run: chmod +x mvn
 
       # --- Paso 4: Compilar el proyecto (sin tests) ---
       - name: "🔧 Compilar proyecto"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} clean compile -DskipTests
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} clean compile -DskipTests
 
       # --- Paso 5: Verificar empaquetado (JAR) ---
       - name: "📦 Empaquetar JAR"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} package -DskipTests
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} package -DskipTests
 
       # --- Paso 6: Subir JAR como artefacto para jobs posteriores ---
       - name: "📤 Subir artefacto JAR"
@@ -145,11 +145,11 @@ jobs:
           cache: maven
 
       - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
+        run: chmod +x mvn
 
       # --- Ejecutar tests unitarios con cobertura JaCoCo ---
       - name: "▶️ Ejecutar tests unitarios con JaCoCo"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} test
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} test
         env:
           SPRING_PROFILES_ACTIVE: test
 
@@ -198,12 +198,12 @@ jobs:
           cache: maven
 
       - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
+        run: chmod +x mvn
 
       # --- Ejecutar tests de integración con Failsafe ---
       # Testcontainers levanta PostgreSQL automáticamente vía Docker
       - name: "▶️ Ejecutar tests de integración (Testcontainers)"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify -Dsurefire.skip=true
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} verify -Dsurefire.skip=true
         env:
           SPRING_PROFILES_ACTIVE: integration
           TESTCONTAINERS_RYUK_DISABLED: "false"
@@ -247,7 +247,7 @@ jobs:
           cache: maven
 
       - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
+        run: chmod +x mvn
 
       # --- Descargar reportes de cobertura del job anterior ---
       - name: "📥 Descargar reporte JaCoCo"
@@ -269,7 +269,7 @@ jobs:
       # --- Ejecutar análisis de SonarCloud ---
       - name: "🔍 Ejecutar análisis de SonarCloud"
         run: >
-          ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify sonar:sonar
+          mvn ${{ env.MAVEN_CLI_OPTS }} verify sonar:sonar
           -DskipTests
           -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
           -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
@@ -309,7 +309,7 @@ jobs:
           cache: maven
 
       - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
+        run: chmod +x mvn
 
       # --- Cache de la base de datos NVD ---
       - name: "💾 Cache de base de datos NVD"
@@ -322,7 +322,7 @@ jobs:
 
       # --- Ejecutar OWASP Dependency-Check ---
       - name: "🔍 Ejecutar OWASP Dependency-Check"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify -Powasp -DskipTests
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} verify -Powasp -DskipTests
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         continue-on-error: true
