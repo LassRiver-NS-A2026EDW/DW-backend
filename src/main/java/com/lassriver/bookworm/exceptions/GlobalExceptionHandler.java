@@ -3,6 +3,7 @@ package com.lassriver.bookworm.exceptions;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -28,6 +29,14 @@ public class GlobalExceptionHandler {
         ApiError body = new ApiError("EMAIL_ALREADY_EXISTS", ex.getMessage(), "warning", Instant.now(),
                 req.getRequestURI());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    // 2.1 Violaciones de reglas de negocio
+    @ExceptionHandler(BusinessRuleException.class)
+    public ResponseEntity<ApiError> handleBusinessRule(BusinessRuleException ex, HttpServletRequest req) {
+        ApiError body = new ApiError("BUSINESS_RULE_VIOLATION", ex.getMessage(), "warning", Instant.now(),
+                req.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
     // 3. Manejo de validaciones de DTOs (Del profe, ajustado con severity)
@@ -92,5 +101,17 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 req.getRequestURI());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    // 6. Errores de autorización (403)
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
+        ApiError body = new ApiError(
+                "FORBIDDEN",
+                "No tienes permisos para realizar esta acción.",
+                "warning",
+                Instant.now(),
+                req.getRequestURI());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 }
