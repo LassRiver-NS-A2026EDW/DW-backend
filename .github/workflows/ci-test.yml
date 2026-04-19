@@ -1,0 +1,85 @@
+name: "CI - PR hacia test"
+
+on:
+  pull_request:
+    branches:
+      - test
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-test-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "25"
+  JAVA_DISTRIBUTION: "temurin"
+  MAVEN_OPTS: "-Xmx1024m -XX:MaxMetaspaceSize=512m"
+  MAVEN_CLI_OPTS: "--batch-mode --no-transfer-progress"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: "build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Compilar
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} clean package -DskipTests
+
+  unit-tests:
+    name: "unit-tests"
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Ejecutar tests unitarios
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} test
+        env:
+          SPRING_PROFILES_ACTIVE: test
+
+  integration-tests:
+    name: "integration-tests"
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Ejecutar tests de integración
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} failsafe:integration-test failsafe:verify
+        env:
+          SPRING_PROFILES_ACTIVE: integration
+          TESTCONTAINERS_RYUK_DISABLED: "false"
