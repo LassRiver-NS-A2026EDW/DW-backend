@@ -7,6 +7,7 @@ spring:
   config:
     activate:
       on-profile: dev
+    import: optional:file:env.properties
   security:
     user:
       name: admin
@@ -14,9 +15,9 @@ spring:
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
   datasource:
-    url: jdbc:postgresql://localhost:5432/bookworm_db
-    username: postgres
-    password: 1234
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bookworm}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:1234}
   jpa:
     hibernate:
       ddl-auto: validate # Flyway se encarga de la estructura

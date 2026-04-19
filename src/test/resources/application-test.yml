@@ -1,0 +1,46 @@
+# =========================================================================
+# PERFIL DE CONFIGURACIÓN PARA TESTS UNITARIOS
+# =========================================================================
+# Este perfil usa H2 en memoria para ejecutar tests rápidos sin necesidad
+# de un servidor PostgreSQL externo ni Docker.
+# Se activa con @ActiveProfiles("test") o SPRING_PROFILES_ACTIVE=test
+# =========================================================================
+
+spring:
+  main:
+    log-startup-info: false
+
+  # --- Desactivar importación de env.properties (no existe en CI) ---
+  config:
+    import: optional:file:env.properties
+
+  # --- Datasource: H2 en memoria (rápido, sin Docker) ---
+  datasource:
+    url: jdbc:h2:mem:bookworm_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  # --- JPA: Crear schema automáticamente (sin Flyway) ---
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  # --- Flyway: Deshabilitado para tests unitarios ---
+  flyway:
+    enabled: false
+
+  # --- Security: Desactivar autoconfiguración para tests ---
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
+# --- Logging: Mínimo para tests ---
+logging:
+  level:
+    root: WARN
+    com.lassriver.bookworm: INFO
+    org.springframework.boot.autoconfigure: WARN

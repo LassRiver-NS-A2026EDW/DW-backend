@@ -1,0 +1,320 @@
+# =============================================================================
+# 🚀 PIPELINE CI/CD PRINCIPAL — BOOKWORM BACKEND
+# =============================================================================
+# Descripción: Pipeline completo de Integración Continua y Despliegue Continuo.
+# Flujo de ramas: dev → test → main
+#
+# IMPORTANTE: Este pipeline SOLO se ejecuta cuando el código llega a la
+# rama test (push directo o merge de PR). NO se ejecuta en dev.
+#
+# Jobs del pipeline:
+#   1. build              → Compilación del proyecto
+#   2. unit-tests         → Tests unitarios con JUnit 5 + Mockito + JaCoCo
+#   3. integration-tests  → Tests de integración con Testcontainers + PostgreSQL
+#   4. security-scan      → Escaneo OWASP Dependency-Check (SCA)
+#   5. docker-build       → Construcción y publicación de imagen Docker
+#   6. deploy-staging     → Despliegue simulado al entorno de pruebas
+# =============================================================================
+
+name: "🔄 CI/CD Pipeline — Bookworm Backend"
+
+# ======================== TRIGGERS ========================
+on:
+  push:
+    branches:
+      - "test"
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".gitignore"
+
+  pull_request:
+    branches:
+      - "test"
+    types: [opened, synchronize, reopened]
+
+  workflow_dispatch:
+
+# ======================== CONCURRENCIA ========================
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ======================== VARIABLES GLOBALES ========================
+env:
+  # --- Java ---
+  # Recomendado: mantener la misma versión en CI y Docker runtime
+  JAVA_VERSION: "25"
+  JAVA_DISTRIBUTION: "temurin"
+
+  # --- Docker ---
+  DOCKER_IMAGE_NAME: ghcr.io/${{ github.repository }}
+  DOCKER_PLATFORMS: linux/amd64
+
+  # --- Maven ---
+  MAVEN_OPTS: "-Xmx1024m -XX:MaxMetaspaceSize=512m"
+  MAVEN_CLI_OPTS: "--batch-mode --no-transfer-progress"
+
+# ======================== PERMISOS ========================
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  pull-requests: write
+
+# =============================================================================
+#                                   J O B S
+# =============================================================================
+jobs:
+
+  # ===========================================================================
+  # JOB 1: COMPILACIÓN
+  # ===========================================================================
+  build:
+    name: "🔨 Compilación"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: "🔧 Compilar y empaquetar sin tests"
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} clean package -DskipTests
+
+      - name: "📤 Subir artefacto JAR"
+        uses: actions/upload-artifact@v4
+        with:
+          name: bookworm-jar
+          path: target/*.jar
+          retention-days: 1
+          if-no-files-found: error
+
+  # ===========================================================================
+  # JOB 2: TESTS UNITARIOS
+  # ===========================================================================
+  unit-tests:
+    name: "🧪 Tests Unitarios"
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: "▶️ Ejecutar tests unitarios con JaCoCo"
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} test
+        env:
+          SPRING_PROFILES_ACTIVE: test
+
+      - name: "📤 Subir reporte de cobertura JaCoCo"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          retention-days: 5
+          if-no-files-found: ignore
+
+      - name: "📤 Subir resultados de tests unitarios"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: target/surefire-reports/
+          retention-days: 5
+          if-no-files-found: ignore
+
+  # ===========================================================================
+  # JOB 3: TESTS DE INTEGRACIÓN
+  # ===========================================================================
+  integration-tests:
+    name: "🔗 Tests de Integración"
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 20
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: "▶️ Ejecutar tests de integración (Testcontainers)"
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} failsafe:integration-test failsafe:verify
+        env:
+          SPRING_PROFILES_ACTIVE: integration
+          TESTCONTAINERS_RYUK_DISABLED: "false"
+
+      - name: "📤 Subir resultados de tests de integración"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: target/failsafe-reports/
+          retention-days: 5
+          if-no-files-found: ignore
+
+  # ===========================================================================
+  # JOB 4: ESCANEO DE SEGURIDAD (OWASP Dependency-Check)
+  # ===========================================================================
+  # Solo se ejecuta en push a test. No en PR.
+  # ===========================================================================
+  security-scan:
+    name: "🛡️ Escaneo de Seguridad (OWASP)"
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test'
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: "💾 Cache de base de datos NVD"
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: owasp-nvd-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            owasp-nvd-${{ runner.os }}-
+
+      - name: "🔍 Ejecutar OWASP Dependency-Check"
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} verify -Powasp -DskipTests
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+      - name: "📤 Subir reporte de seguridad OWASP"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-security-report
+          path: target/owasp-reports/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ===========================================================================
+  # JOB 5: CONSTRUCCIÓN DE IMAGEN DOCKER
+  # ===========================================================================
+  # Solo se ejecuta en push a test. No en PR.
+  # ===========================================================================
+  docker-build:
+    name: "🐳 Docker Build & Push"
+    runs-on: ubuntu-latest
+    needs: [security-scan]
+    timeout-minutes: 20
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test'
+
+    steps:
+      - name: "📥 Checkout del código fuente"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Configurar Docker Buildx"
+        uses: docker/setup-buildx-action@v3
+
+      - name: "🔑 Login a GitHub Container Registry"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "🏷️ Extraer metadatos Docker"
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
+            type=raw,value=test-latest
+
+      - name: "🏗️ Construir y publicar imagen Docker"
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+
+  # ===========================================================================
+  # JOB 6: DESPLIEGUE A STAGING
+  # ===========================================================================
+  # Solo se ejecuta en push a test y después de Docker.
+  # ===========================================================================
+  deploy-staging:
+    name: "🚀 Despliegue a Staging"
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    timeout-minutes: 10
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test'
+    environment:
+      name: staging
+      url: https://staging.bookworm.example.com
+
+    steps:
+      - name: "🚀 Desplegar a entorno de Staging"
+        run: |
+          echo "============================================="
+          echo "🚀 DESPLIEGUE A STAGING"
+          echo "============================================="
+          echo "📦 Imagen Docker: ${{ env.DOCKER_IMAGE_NAME }}:${{ github.sha }}"
+          echo "🌿 Rama: ${{ github.ref_name }}"
+          echo "👤 Autor: ${{ github.actor }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "⏰ Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "============================================="
+          echo "✅ Despliegue simulado completado exitosamente."
+
+      - name: "✅ Smoke test post-despliegue"
+        run: |
+          echo "🔍 Ejecutando smoke test simulado..."
+          echo "   → GET /actuator/health ... OK"
+          echo "   → GET /swagger-ui.html ... OK"
+          echo "   → POST /api/auth/register ... OK"
+          echo "✅ Smoke tests completados exitosamente."
+
+      - name: "📣 Resumen del despliegue"
+        run: |
+          echo "## 🚀 Despliegue a Staging Exitoso" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detalle | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Rama | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Imagen | \`${{ env.DOCKER_IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Autor | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Fecha | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
