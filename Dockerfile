@@ -17,20 +17,15 @@ WORKDIR /app
 
 # Copiar archivos de Maven primero (aprovecha capas de cache de Docker)
 COPY pom.xml ./
-COPY mvnw ./
-COPY .mvn ./.mvn
-
-# Dar permisos de ejecución al Maven Wrapper
-RUN chmod +x mvnw
 
 # Descargar dependencias (esta capa se cachea si pom.xml no cambia)
-RUN ./mvnw dependency:go-offline -B
+RUN mvn dependency:go-offline -B
 
 # Copiar el código fuente
 COPY src ./src
 
 # Compilar el JAR sin ejecutar tests (los tests se ejecutan en CI)
-RUN ./mvnw clean package -DskipTests -B \
+RUN mvn clean package -DskipTests -B \
     && mv target/*.jar target/app.jar
 
 # ======================== STAGE 2: RUNTIME ========================
