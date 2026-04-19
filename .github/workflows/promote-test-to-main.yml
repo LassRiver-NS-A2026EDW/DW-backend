@@ -1,0 +1,56 @@
+name: "Promote test to main"
+
+on:
+  push:
+    branches:
+      - test
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    name: "create-or-update-pr-to-main"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Crear o actualizar PR de test a main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          existing_pr=$(gh pr list \
+            --base main \
+            --head test \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+
+          if [ -z "$existing_pr" ]; then
+            gh pr create \
+              --base main \
+              --head test \
+              --title "Promoción automática: test → main" \
+              --body "PR creado automáticamente al actualizar la rama test."
+          else
+            echo "Ya existe PR abierto: #$existing_pr"
+          fi
+
+      - name: Activar auto-merge en el PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pr_number=$(gh pr list \
+            --base main \
+            --head test \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+
+          gh pr merge "$pr_number" --auto --merge
