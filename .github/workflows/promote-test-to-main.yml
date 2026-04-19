@@ -23,7 +23,7 @@ jobs:
 
       - name: Crear o actualizar PR de test a main
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PR_TOKEN }}
         run: |
           existing_pr=$(gh pr list \
             --base main \
@@ -44,7 +44,7 @@ jobs:
 
       - name: Activar auto-merge en el PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PR_TOKEN }}
         run: |
           pr_number=$(gh pr list \
             --base main \
