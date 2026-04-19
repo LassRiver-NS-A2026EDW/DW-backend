@@ -4,34 +4,36 @@
 # Descripción: Escaneo de seguridad estática (SAST) del código fuente Java.
 # SOLO se ejecuta en la rama test (push/PR) y semanalmente (cron).
 # =============================================================================
-
 name: "🔐 CodeQL Security Analysis"
 
-# ======================== TRIGGERS ========================
 on:
-  # SOLO en la rama test
   push:
     branches:
-      - 'test'
+      - test
     paths-ignore:
       - "**.md"
       - "docs/**"
+      - ".gitignore"
 
   pull_request:
     branches:
-      - 'test'
+      - test
+    types: [opened, synchronize, reopened]
 
-  # Ejecución programada semanal
   schedule:
     - cron: "0 6 * * 1"
 
-# ======================== PERMISOS ========================
+  workflow_dispatch:
+
 permissions:
   actions: read
   contents: read
   security-events: write
 
-# ======================== JOBS ========================
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   codeql-analysis:
     name: "🔍 Análisis CodeQL (Java)"
@@ -41,33 +43,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["java-kotlin"]
+        language: [java-kotlin]
 
     steps:
-      - name: "📥 Checkout del código fuente"
+      - name: "📥 Checkout"
         uses: actions/checkout@v4
 
-      # Usar Java 21 LTS (disponible y compatible)
-      - name: "☕ Configurar JDK 21"
+      - name: "☕ Configurar JDK 25"
         uses: actions/setup-java@v4
         with:
-          java-version: "21"
+          java-version: "25"
           distribution: "temurin"
           cache: maven
 
-      - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
-
       - name: "🔧 Inicializar CodeQL"
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
 
       - name: "🔨 Auto-build del proyecto"
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: "🔍 Ejecutar análisis CodeQL"
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"

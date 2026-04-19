@@ -1,7 +1,7 @@
 package com.lassriver.bookworm.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lassriver.bookworm.AbstractIntegrationTest;
+import com.lassriver.bookworm.BaseIntegrationTest;
 import com.lassriver.bookworm.dtos.request.LoginRequest;
 import com.lassriver.bookworm.dtos.request.UserRegistrationRequest;
 import com.lassriver.bookworm.entities.enums.Gender;
@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisplayName("AuthController - Tests de Integración")
-class AuthControllerIT extends AbstractIntegrationTest {
+class AuthControllerIT extends BaseIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;

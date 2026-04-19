@@ -21,7 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * 
  * <p><strong>Ejemplo de uso:</strong></p>
  * <pre>{@code
- * class MiServicioIT extends AbstractIntegrationTest {
+ * class MiServicioIT extends BaseIntegrationTest {
  *     @Test
  *     void debeGuardarEnBaseDeDatos() {
  *         // Este test usa PostgreSQL real vía Testcontainers
@@ -32,7 +32,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("integration")
 @Testcontainers
-public abstract class AbstractIntegrationTest {
+public abstract class BaseIntegrationTest {
 
     /**
      * Contenedor PostgreSQL compartido (singleton).
@@ -43,9 +43,8 @@ public abstract class AbstractIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES_CONTAINER =
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("bookworm_test")
-                    .withUsername("test_user")
-                    .withPassword("test_password")
-                    .withReuse(true); // Reutilizar contenedor entre ejecuciones locales
+                    .withUsername("test")
+                    .withPassword("test");
 
     /**
      * Inyecta dinámicamente las propiedades de conexión del contenedor

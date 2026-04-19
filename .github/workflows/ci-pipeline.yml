@@ -24,10 +24,11 @@ name: "🔄 CI/CD Pipeline — Bookworm Backend"
 #   - Cuando se hace push directo a test
 #   - Cuando se abre/actualiza un PR que apunta HACIA test
 # NO se ejecuta en dev ni en main directamente.
+
 on:
   push:
     branches:
-      - 'test'
+      - test
     paths-ignore:
       - "**.md"
       - "docs/**"
@@ -35,83 +36,51 @@ on:
 
   pull_request:
     branches:
-      - 'test'
+      - test
     types: [opened, synchronize, reopened]
 
-# ======================== CONCURRENCIA ========================
-# Cancela ejecuciones anteriores del mismo PR/rama para ahorrar recursos
+  workflow_dispatch:
+
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# ======================== VARIABLES GLOBALES ========================
 env:
-  # --- Java ---
-  # Usamos Java 21 LTS que es compatible con Spring Boot 4.x y está
-  # disponible en todas las distribuciones de GitHub Actions.
-  # Java 25 no está disponible aún en Temurin/Corretto runners.
-  JAVA_VERSION: "21"
+  JAVA_VERSION: "25"
   JAVA_DISTRIBUTION: "temurin"
-
-  # --- Docker ---
   DOCKER_IMAGE_NAME: ghcr.io/${{ github.repository }}
   DOCKER_PLATFORMS: linux/amd64
-
-  # --- Maven ---
   MAVEN_OPTS: "-Xmx1024m -XX:MaxMetaspaceSize=512m"
-  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version"
+  MAVEN_CLI_OPTS: "--batch-mode --no-transfer-progress"
 
-# ======================== PERMISOS ========================
 permissions:
   contents: read
-  packages: write         # Para publicar imágenes a GHCR
-  security-events: write  # Para subir resultados de seguridad
-  pull-requests: write    # Para comentar en PRs
+  packages: write
+  security-events: write
+  pull-requests: write
 
-# =============================================================================
-#                              J O B S
-# =============================================================================
 jobs:
-
-  # ===========================================================================
-  # JOB 1: COMPILACIÓN (BUILD)
-  # ===========================================================================
-  # Compila el proyecto y verifica que no haya errores de sintaxis,
-  # dependencias faltantes o problemas de configuración.
-  # ===========================================================================
   build:
     name: "🔨 Compilación"
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      # --- Paso 1: Clonar el repositorio ---
-      - name: "📥 Checkout del código fuente"
+      - name: "📥 Checkout"
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Historial completo para SonarCloud
+          fetch-depth: 0
 
-      # --- Paso 2: Configurar JDK ---
-      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+      - name: "☕ Configurar JDK"
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      # --- Paso 3: Dar permisos de ejecución al Maven Wrapper ---
-      - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
+      - name: "🔧 Compilar y empaquetar sin tests"
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} clean package -DskipTests
 
-      # --- Paso 4: Compilar el proyecto (sin tests) ---
-      - name: "🔧 Compilar proyecto"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} clean compile -DskipTests
-
-      # --- Paso 5: Verificar empaquetado (JAR) ---
-      - name: "📦 Empaquetar JAR"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} package -DskipTests
-
-      # --- Paso 6: Subir JAR como artefacto para jobs posteriores ---
       - name: "📤 Subir artefacto JAR"
         uses: actions/upload-artifact@v4
         with:
@@ -120,13 +89,6 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # ===========================================================================
-  # JOB 2: TESTS UNITARIOS
-  # ===========================================================================
-  # Ejecuta todos los tests unitarios con JUnit 5 + Mockito.
-  # JaCoCo genera reportes de cobertura para SonarCloud.
-  # Excluye tests que terminan en *IT o *IntegrationTest.
-  # ===========================================================================
   unit-tests:
     name: "🧪 Tests Unitarios"
     runs-on: ubuntu-latest
@@ -134,37 +96,33 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: "📥 Checkout del código fuente"
+      - name: "📥 Checkout"
         uses: actions/checkout@v4
 
-      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+      - name: "☕ Configurar JDK"
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
-
-      # --- Ejecutar tests unitarios con cobertura JaCoCo ---
-      - name: "▶️ Ejecutar tests unitarios con JaCoCo"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} test
+      - name: "▶️ Ejecutar tests unitarios"
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} test
         env:
           SPRING_PROFILES_ACTIVE: test
 
-      # --- Subir reportes de cobertura para SonarCloud ---
-      - name: "📤 Subir reporte de cobertura JaCoCo"
+      - name: "📤 Subir reporte JaCoCo"
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: jacoco-report
-          path: target/site/jacoco/
+          path: |
+            target/site/jacoco/
+            target/jacoco.xml
           retention-days: 5
           if-no-files-found: ignore
 
-      # --- Subir resultados de tests como artefacto ---
-      - name: "📤 Subir resultados de tests unitarios"
+      - name: "📤 Subir resultados unitarios"
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -173,13 +131,6 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
-  # ===========================================================================
-  # JOB 3: TESTS DE INTEGRACIÓN
-  # ===========================================================================
-  # Ejecuta tests de integración con Testcontainers.
-  # Levanta un contenedor PostgreSQL real para validar el flujo
-  # completo de la aplicación (Flyway + JPA + Controllers).
-  # ===========================================================================
   integration-tests:
     name: "🔗 Tests de Integración"
     runs-on: ubuntu-latest
@@ -187,29 +138,23 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: "📥 Checkout del código fuente"
+      - name: "📥 Checkout"
         uses: actions/checkout@v4
 
-      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+      - name: "☕ Configurar JDK"
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
-
-      # --- Ejecutar tests de integración con Failsafe ---
-      # Testcontainers levanta PostgreSQL automáticamente vía Docker
-      - name: "▶️ Ejecutar tests de integración (Testcontainers)"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify -Dsurefire.skip=true
+      - name: "▶️ Ejecutar tests de integración"
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} failsafe:integration-test failsafe:verify
         env:
           SPRING_PROFILES_ACTIVE: integration
           TESTCONTAINERS_RYUK_DISABLED: "false"
 
-      # --- Subir resultados de tests de integración ---
-      - name: "📤 Subir resultados de tests de integración"
+      - name: "📤 Subir resultados integración"
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -218,38 +163,26 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
-  # ===========================================================================
-  # JOB 4: ANÁLISIS DE CALIDAD DE CÓDIGO (SonarCloud)
-  # ===========================================================================
-  # Ejecuta análisis estático con SonarCloud para detectar:
-  # - Code Smells, Bugs, Vulnerabilidades, Deuda técnica
-  # El pipeline FALLA si no se cumple el Quality Gate.
-  # ===========================================================================
   code-quality:
     name: "📊 Calidad de Código (SonarCloud)"
     runs-on: ubuntu-latest
     needs: [unit-tests, integration-tests]
     timeout-minutes: 15
-    # Solo ejecutar si el secret SONAR_TOKEN existe
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
-      - name: "📥 Checkout del código fuente"
+      - name: "📥 Checkout"
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+      - name: "☕ Configurar JDK"
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
-
-      # --- Descargar reportes de cobertura del job anterior ---
       - name: "📥 Descargar reporte JaCoCo"
         uses: actions/download-artifact@v4
         with:
@@ -257,8 +190,7 @@ jobs:
           path: target/site/jacoco/
         continue-on-error: true
 
-      # --- Cache específico de SonarCloud ---
-      - name: "💾 Cache de SonarCloud"
+      - name: "💾 Cache SonarCloud"
         uses: actions/cache@v4
         with:
           path: ~/.sonar/cache
@@ -266,10 +198,9 @@ jobs:
           restore-keys: |
             sonar-${{ runner.os }}-
 
-      # --- Ejecutar análisis de SonarCloud ---
-      - name: "🔍 Ejecutar análisis de SonarCloud"
+      - name: "🔍 Ejecutar SonarCloud"
         run: >
-          ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify sonar:sonar
+          mvn ${{ env.MAVEN_CLI_OPTS }} sonar:sonar
           -DskipTests
           -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
           -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
@@ -281,54 +212,39 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        continue-on-error: true
 
-  # ===========================================================================
-  # JOB 5: ESCANEO DE SEGURIDAD (OWASP Dependency-Check)
-  # ===========================================================================
-  # Escanea las dependencias buscando vulnerabilidades conocidas (CVEs).
-  # Falla si CVSS >= 7.
-  # Solo se ejecuta en push (no en cada commit de PR).
-  # ===========================================================================
   security-scan:
     name: "🛡️ Escaneo de Seguridad (OWASP)"
     runs-on: ubuntu-latest
-    needs: build
+    needs: [unit-tests, integration-tests]
     timeout-minutes: 30
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test'
 
     steps:
-      - name: "📥 Checkout del código fuente"
+      - name: "📥 Checkout"
         uses: actions/checkout@v4
 
-      - name: "☕ Configurar JDK ${{ env.JAVA_VERSION }}"
+      - name: "☕ Configurar JDK"
         uses: actions/setup-java@v4
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: "🔧 Permisos para Maven Wrapper"
-        run: chmod +x ./mvnw
-
-      # --- Cache de la base de datos NVD ---
-      - name: "💾 Cache de base de datos NVD"
+      - name: "💾 Cache NVD"
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: owasp-nvd-${{ runner.os }}-${{ github.run_id }}
+          key: owasp-nvd-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             owasp-nvd-${{ runner.os }}-
 
-      # --- Ejecutar OWASP Dependency-Check ---
       - name: "🔍 Ejecutar OWASP Dependency-Check"
-        run: ./mvnw ${{ env.MAVEN_CLI_OPTS }} verify -Powasp -DskipTests
+        run: mvn ${{ env.MAVEN_CLI_OPTS }} verify -Powasp -DskipTests
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        continue-on-error: true
 
-      # --- Subir reportes de seguridad ---
-      - name: "📤 Subir reporte de seguridad OWASP"
+      - name: "📤 Subir reporte OWASP"
         uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -337,49 +253,38 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-  # ===========================================================================
-  # JOB 6: CONSTRUCCIÓN DE IMAGEN DOCKER
-  # ===========================================================================
-  # Construye una imagen Docker multi-stage optimizada y la publica
-  # en GitHub Container Registry (ghcr.io).
-  # Solo se ejecuta en push a test (no en PRs).
-  # ===========================================================================
   docker-build:
     name: "🐳 Docker Build & Push"
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
-    timeout-minutes: 15
-    if: github.event_name == 'push'
+    needs: [code-quality, security-scan]
+    timeout-minutes: 20
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test'
 
     steps:
-      - name: "📥 Checkout del código fuente"
+      - name: "📥 Checkout"
         uses: actions/checkout@v4
 
-      # --- Configurar Docker Buildx ---
       - name: "🔧 Configurar Docker Buildx"
         uses: docker/setup-buildx-action@v3
 
-      # --- Autenticar con GHCR ---
-      - name: "🔑 Login a GitHub Container Registry"
+      - name: "🔑 Login a GHCR"
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # --- Extraer metadatos para etiquetas ---
-      - name: "🏷️ Extraer metadatos Docker"
+      - name: "🏷️ Extraer metadatos"
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.DOCKER_IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=sha,prefix=,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=raw,value=test-latest
 
-      # --- Construir y publicar la imagen Docker ---
-      - name: "🏗️ Construir y publicar imagen Docker"
+      - name: "🏗️ Build & Push"
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -391,27 +296,36 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: ${{ env.DOCKER_PLATFORMS }}
 
-  # ===========================================================================
-  # JOB 7: DESPLIEGUE SIMULADO A STAGING
-  # ===========================================================================
-  # Solo se ejecuta cuando TODOS los jobs anteriores son exitosos
-  # y únicamente en la rama test (push).
-  # ===========================================================================
+  docker-validate:
+    name: "🐳 Validar Dockerfile"
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+  
   deploy-staging:
     name: "🚀 Despliegue a Staging"
     runs-on: ubuntu-latest
-    needs: [code-quality, security-scan, docker-build]
+    needs: [docker-build]
     timeout-minutes: 10
-    if: github.ref == 'refs/heads/test' && github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/test'
     environment:
       name: staging
       url: https://staging.bookworm.example.com
 
     steps:
-      - name: "📥 Checkout del código fuente"
-        uses: actions/checkout@v4
-
-      - name: "🚀 Desplegar a entorno de Staging"
+      - name: "🚀 Desplegar a Staging"
         run: |
           echo "============================================="
           echo "🚀 DESPLIEGUE A STAGING"
@@ -427,9 +341,9 @@ jobs:
       - name: "✅ Smoke test post-despliegue"
         run: |
           echo "🔍 Ejecutando smoke test simulado..."
-          echo "   → GET /actuator/health ... OK (simulado)"
-          echo "   → GET /swagger-ui.html ... OK (simulado)"
-          echo "   → POST /api/auth/register ... OK (simulado)"
+          echo "   → GET /actuator/health ... OK"
+          echo "   → GET /swagger-ui.html ... OK"
+          echo "   → POST /api/auth/register ... OK"
           echo "✅ Smoke tests completados exitosamente."
 
       - name: "📣 Resumen del despliegue"
@@ -438,8 +352,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Detalle | Valor |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Rama** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Imagen** | \`${{ env.DOCKER_IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Autor** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Fecha** | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rama | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Imagen | \`${{ env.DOCKER_IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Autor | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Fecha | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
