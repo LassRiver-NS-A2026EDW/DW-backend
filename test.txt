@@ -1,0 +1,110 @@
+[[1;34mINFO[m] Scanning for projects...
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m-----------------------< [0;36mcom.lassriver:bookworm[0;1m >-----------------------[m
+[[1;34mINFO[m] [1mBuilding  0.0.1-SNAPSHOT[m
+[[1;34mINFO[m] [1m--------------------------------[ jar ]---------------------------------[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-clean-plugin:3.5.0:clean[m [1m(default-clean)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] Deleting /home/gebert/projetc-springboot/bookworm-backend/target
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mjacoco-maven-plugin:0.8.12:prepare-agent[m [1m(pre-unit-test)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] surefireArgLine set to -javaagent:/home/gebert/.m2/repository/org/jacoco/org.jacoco.agent/0.8.12/org.jacoco.agent-0.8.12-runtime.jar=destfile=/home/gebert/projetc-springboot/bookworm-backend/target/jacoco.exec
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.3.1:resources[m [1m(default-resources)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] Copying 1 resource from src/main/resources to target/classes
+[[1;34mINFO[m] Copying 2 resources from src/main/resources to target/classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.14.1:compile[m [1m(default-compile)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] Recompiling the module because of [1mchanged source code[m.
+[[1;34mINFO[m] Compiling 20 source files with javac [debug parameters release 25] to target/classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.3.1:testResources[m [1m(default-testResources)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] Copying 2 resources from src/test/resources to target/test-classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.14.1:testCompile[m [1m(default-testCompile)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] Recompiling the module because of [1mchanged dependency[m.
+[[1;34mINFO[m] Compiling 4 source files with javac [debug parameters release 25] to target/test-classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-surefire-plugin:3.5.5:test[m [1m(default-test)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[[1;34mINFO[m] 
+[[1;34mINFO[m] -------------------------------------------------------
+[[1;34mINFO[m]  T E S T S
+[[1;34mINFO[m] -------------------------------------------------------
+[[1;34mINFO[m] Running com.lassriver.bookworm.[1mBookwormApplicationTests[m
+14:26:13.924 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.lassriver.bookworm.BookwormApplicationTests]: BookwormApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+14:26:14.081 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.lassriver.bookworm.BookwormApplication for test class com.lassriver.bookworm.BookwormApplicationTests
+14:26:14.235 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.lassriver.bookworm.BookwormApplicationTests]: BookwormApplicationTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+14:26:14.237 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.lassriver.bookworm.BookwormApplication for test class com.lassriver.bookworm.BookwormApplicationTests
+14:26:14.338 [main] INFO org.springframework.boot.devtools.restart.RestartApplicationListener -- Restart disabled due to context in which it is running
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.0.5)
+
+2026-03-31T14:26:14.765-05:00  INFO 155311 --- [           main] c.l.bookworm.BookwormApplicationTests    : Starting BookwormApplicationTests using Java 25.0.2 with PID 155311 (started by gebert in /home/gebert/projetc-springboot/bookworm-backend)
+2026-03-31T14:26:14.767-05:00  INFO 155311 --- [           main] c.l.bookworm.BookwormApplicationTests    : The following 1 profile is active: "dev"
+2026-03-31T14:26:15.893-05:00  INFO 155311 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-03-31T14:26:15.954-05:00  INFO 155311 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 51 ms. Found 1 JPA repository interface.
+2026-03-31T14:26:16.614-05:00  INFO 155311 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-03-31T14:26:17.074-05:00  INFO 155311 --- [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@4243ed1b
+2026-03-31T14:26:17.076-05:00  INFO 155311 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-03-31T14:26:17.128-05:00  INFO 155311 --- [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/bookworm (PostgreSQL 17.9)
+2026-03-31T14:26:17.181-05:00  INFO 155311 --- [           main] o.f.core.internal.command.DbValidate     : Successfully validated 2 migrations (execution time 00:00.026s)
+2026-03-31T14:26:17.216-05:00  INFO 155311 --- [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 2
+2026-03-31T14:26:17.219-05:00  INFO 155311 --- [           main] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-03-31T14:26:17.353-05:00  INFO 155311 --- [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-03-31T14:26:17.417-05:00  INFO 155311 --- [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.2.7.Final
+2026-03-31T14:26:17.957-05:00  INFO 155311 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-03-31T14:26:18.072-05:00  INFO 155311 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:postgresql://localhost:5432/bookworm]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 17.9
+	Default catalog/schema: bookworm/public
+	Autocommit mode: undefined/unknown
+	Isolation level: READ_COMMITTED [default READ_COMMITTED]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-03-31T14:26:19.052-05:00  INFO 155311 --- [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-03-31T14:26:19.088-05:00  INFO 155311 --- [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-03-31T14:26:19.160-05:00  INFO 155311 --- [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-03-31T14:26:19.348-05:00  INFO 155311 --- [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name customUserDetailsService
+2026-03-31T14:26:19.485-05:00  WARN 155311 --- [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-03-31T14:26:19.722-05:00 DEBUG 155311 --- [           main] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with filters: DisableEncodeUrlFilter, WebAsyncManagerIntegrationFilter, SecurityContextHolderFilter, HeaderWriterFilter, LogoutFilter, JwtAuthenticationFilter, RequestCacheAwareFilter, SecurityContextHolderAwareRequestFilter, AnonymousAuthenticationFilter, SessionManagementFilter, ExceptionTranslationFilter, AuthorizationFilter
+2026-03-31T14:26:20.207-05:00  INFO 155311 --- [           main] c.l.bookworm.BookwormApplicationTests    : Started BookwormApplicationTests in 5.884 seconds (process running for 7.609)
+2026-03-31T14:26:20.210-05:00  WARN 155311 --- [           main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /v3/api-docs endpoint is enabled by default. To disable it in production, set the property 'springdoc.api-docs.enabled=false'
+2026-03-31T14:26:20.210-05:00  WARN 155311 --- [           main] o.s.core.events.SpringDocAppInitializer  : SpringDoc /swagger-ui.html endpoint is enabled by default. To disable it in production, set the property 'springdoc.swagger-ui.enabled=false'
+[[1;34mINFO[m] [1;32mTests run: [0;1;32m1[m, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.948 s -- in com.lassriver.bookworm.[1mBookwormApplicationTests[m
+[[1;34mINFO[m] Running com.lassriver.bookworm.services.impl.[1mUserServiceImplTest[m
+2026-03-31T14:26:20.993-05:00  INFO 155311 --- [           main] c.l.b.services.impl.UserServiceImpl      : Usuario registrado: brian@test.com
+2026-03-31T14:26:21.035-05:00  INFO 155311 --- [           main] c.l.b.services.impl.UserServiceImpl      : Login exitoso para el usuario: kevin@test.com
+[[1;34mINFO[m] [1;32mTests run: [0;1;32m4[m, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.496 s -- in com.lassriver.bookworm.services.impl.[1mUserServiceImplTest[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] Results:
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1;32mTests run: 5, Failures: 0, Errors: 0, Skipped: 0[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mjacoco-maven-plugin:0.8.12:report[m [1m(post-unit-test)[m @ [36mbookworm[0;1m ---[m
+[[1;34mINFO[m] Loading execution data file /home/gebert/projetc-springboot/bookworm-backend/target/jacoco.exec
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] [1;31mBUILD FAILURE[m
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] Total time:  11.778 s
+[[1;34mINFO[m] Finished at: 2026-03-31T14:26:21-05:00
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;31mERROR[m] Failed to execute goal [32morg.jacoco:jacoco-maven-plugin:0.8.12:report[m [1m(post-unit-test)[m on project [36mbookworm[m: [1;31mAn error has occurred in JaCoCo report generation.[m: Error while creating report: Error while analyzing /home/gebert/projetc-springboot/bookworm-backend/target/classes/com/lassriver/bookworm/dtos/response/UserRegistrationResponse$UserRegistrationResponseBuilder.class with JaCoCo 0.8.12.202403310830/dbfb6f2. Unsupported class file major version 69 -> [1m[Help 1][m
+[[1;31mERROR[m] 
+[[1;31mERROR[m] To see the full stack trace of the errors, re-run Maven with the [1m-e[m switch.
+[[1;31mERROR[m] Re-run Maven using the [1m-X[m switch to enable full debug logging.
+[[1;31mERROR[m] 
+[[1;31mERROR[m] For more information about the errors and possible solutions, please read the following articles:
+[[1;31mERROR[m] [1m[Help 1][m http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

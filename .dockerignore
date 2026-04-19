@@ -1,0 +1,34 @@
+# =========================================================================
+# .dockerignore — Excluir archivos innecesarios del contexto de Docker
+# =========================================================================
+
+# Directorios de compilación local
+target/
+!target/*.jar
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.iml
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentación
+*.md
+LICENSE
+
+# CI/CD
+.github/
+
+# Archivos de configuración de desarrollo
+docker-compose*.yml
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

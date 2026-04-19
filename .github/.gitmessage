@@ -1,0 +1,9 @@
+# <tipo>(<alcance>): <descripción corta>
+#
+# Tipos permitidos: feat, fix, docs, style, refactor, test, chore
+# Ejemplo: feat(auth): añadir login con JWT
+#
+# Cuerpo del mensaje: ¿Por qué se hizo este cambio? ¿Cómo soluciona el problema?
+
+# Referencia a incidencias (ej. Fixes #123)
+
