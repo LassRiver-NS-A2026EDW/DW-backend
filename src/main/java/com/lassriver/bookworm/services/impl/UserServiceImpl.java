@@ -1,6 +1,7 @@
 package com.lassriver.bookworm.services.impl;
 
 import com.lassriver.bookworm.dtos.request.LoginRequest;
+import com.lassriver.bookworm.dtos.request.PasswordChangeRequest;
 import com.lassriver.bookworm.dtos.request.UserProfileUpdateRequest;
 import com.lassriver.bookworm.dtos.request.UserRegistrationRequest;
 import com.lassriver.bookworm.dtos.response.LoginResponse;
@@ -101,6 +102,20 @@ public class UserServiceImpl implements UserService {
 
         user.setName(request.getName());
         return toProfileResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public void changeCurrentPassword(String authenticatedEmail, PasswordChangeRequest request) {
+        User user = getUserByEmail(authenticatedEmail);
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BusinessRuleException("La contrasena actual no es correcta.");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BusinessRuleException("La nueva contrasena debe ser diferente a la actual.");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     private User getUserByEmail(String email) {

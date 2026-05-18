@@ -43,7 +43,7 @@ class BookServiceImplTest {
 
         when(bookRepository.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(page);
 
-        Page<BookResponse> response = bookService.getBooks("clean", "software", PageRequest.of(0, 10));
+        Page<BookResponse> response = bookService.getBooks("clean", null, "software", null, null, PageRequest.of(0, 10));
 
         assertNotNull(response);
         assertEquals(1, response.getTotalElements());
@@ -85,14 +85,14 @@ class BookServiceImplTest {
     }
 
     @Test
-    void deactivateBook_HappyPath_ChangesStatusToInactive() {
+    void updateBookStatus_HappyPath_ChangesStatusToInactive() {
         Book book = Book.builder().id(5L).title("Book").status("ACTIVE").build();
         Book updated = Book.builder().id(5L).title("Book").status("INACTIVE").build();
 
         when(bookRepository.findById(5L)).thenReturn(Optional.of(book));
         when(bookRepository.save(eq(book))).thenReturn(updated);
 
-        BookResponse response = bookService.deactivateBook(5L);
+        BookResponse response = bookService.updateBookStatus(5L, "INACTIVE");
 
         assertEquals("INACTIVE", response.getStatus());
         verify(bookRepository, times(1)).save(book);
