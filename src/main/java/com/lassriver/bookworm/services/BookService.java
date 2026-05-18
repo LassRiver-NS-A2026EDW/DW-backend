@@ -6,7 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface BookService {
-    Page<BookResponse> getBooks(String title, String category, Pageable pageable);
+    Page<BookResponse> getBooks(String search, String title, String category, String language, String status, Pageable pageable);
 
     BookResponse getBook(Long id);
 
@@ -14,5 +14,5 @@ public interface BookService {
 
     BookResponse updateBook(Long id, BookUpsertRequest request);
 
-    BookResponse deactivateBook(Long id);
+    BookResponse updateBookStatus(Long id, String status);
 }

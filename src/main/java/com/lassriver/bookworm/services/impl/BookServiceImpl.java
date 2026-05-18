@@ -3,6 +3,7 @@ package com.lassriver.bookworm.services.impl;
 import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.entities.Book;
+import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
@@ -27,9 +28,17 @@ public class BookServiceImpl implements BookService {
     private static final String REVIEW_VISIBLE = "VISIBLE";
 
     @Override
-    public Page<BookResponse> getBooks(String title, String category, Pageable pageable) {
+    public Page<BookResponse> getBooks(String search, String title, String category, String language, String status, Pageable pageable) {
         Specification<Book> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+
+            if (search != null && !search.isBlank()) {
+                String term = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), term),
+                        cb.like(cb.lower(root.get("author")), term),
+                        cb.like(cb.lower(root.get("isbn")), term)));
+            }
 
             if (title != null && !title.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("title")), "%" + title.toLowerCase() + "%"));
@@ -37,6 +46,14 @@ public class BookServiceImpl implements BookService {
 
             if (category != null && !category.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("category")), "%" + category.toLowerCase() + "%"));
+            }
+
+            if (language != null && !language.isBlank()) {
+                predicates.add(cb.equal(cb.lower(root.get("language")), language.toLowerCase()));
+            }
+
+            if (status != null && !status.isBlank()) {
+                predicates.add(cb.equal(cb.upper(root.get("status")), normalizeStatus(status)));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -73,14 +90,22 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    public BookResponse deactivateBook(Long id) {
+    public BookResponse updateBookStatus(Long id, String status) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + id));
 
-        book.setStatus("INACTIVE");
+        book.setStatus(normalizeStatus(status));
 
         Book updatedBook = bookRepository.save(book);
         return toResponse(updatedBook);
+    }
+
+    private String normalizeStatus(String status) {
+        String normalized = status == null || status.isBlank() ? "INACTIVE" : status.trim().toUpperCase();
+        if (!"ACTIVE".equals(normalized) && !"INACTIVE".equals(normalized)) {
+            throw new BusinessRuleException("Estado de libro invalido: " + status);
+        }
+        return normalized;
     }
 
     private void mapRequestToEntity(BookUpsertRequest request, Book book) {
