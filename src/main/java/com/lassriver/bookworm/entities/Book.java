@@ -2,6 +2,7 @@ package com.lassriver.bookworm.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -37,6 +38,17 @@ public class Book {
 
     @Column(name = "cover_url", columnDefinition = "TEXT")
     private String coverUrl;
+
+    @Column(length = 255)
+    private String publisher;
+
+    @Column(name = "publish_date")
+    private LocalDate publishDate;
+
+    private Integer pages;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

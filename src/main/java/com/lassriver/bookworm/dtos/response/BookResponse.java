@@ -3,6 +3,7 @@ package com.lassriver.bookworm.dtos.response;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -16,5 +17,11 @@ public class BookResponse {
     private String language;
     private String status;
     private String coverUrl;
+    private String publisher;
+    private LocalDate publishDate;
+    private Integer pages;
+    private String description;
+    private Double rating;
+    private Long reviewCount;
     private LocalDateTime createdAt;
 }

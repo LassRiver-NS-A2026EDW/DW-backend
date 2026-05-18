@@ -2,10 +2,10 @@ package com.lassriver.bookworm.controllers;
 
 import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
 import com.lassriver.bookworm.dtos.response.BookResponse;
+import com.lassriver.bookworm.dtos.response.PageResponse;
 import com.lassriver.bookworm.services.BookService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +19,16 @@ public class BookController {
     private final BookService bookService;
 
     @GetMapping
-    public ResponseEntity<Page<BookResponse>> getBooks(
+    public ResponseEntity<PageResponse<BookResponse>> getBooks(
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String category,
             Pageable pageable) {
-        return ResponseEntity.ok(bookService.getBooks(title, category, pageable));
+        return ResponseEntity.ok(PageResponse.from(bookService.getBooks(title, category, pageable)));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<BookResponse> getBook(@PathVariable Long id) {
+        return ResponseEntity.ok(bookService.getBook(id));
     }
 
     @PostMapping
