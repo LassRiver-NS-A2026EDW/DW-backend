@@ -1,10 +1,12 @@
 package com.lassriver.bookworm.services.impl;
 
 import com.lassriver.bookworm.dtos.request.LoginRequest;
+import com.lassriver.bookworm.dtos.request.PasswordChangeRequest;
 import com.lassriver.bookworm.dtos.request.UserRegistrationRequest;
 import com.lassriver.bookworm.dtos.response.LoginResponse;
 import com.lassriver.bookworm.dtos.response.UserRegistrationResponse;
 import com.lassriver.bookworm.entities.User;
+import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.EmailAlreadyExistsException;
 import com.lassriver.bookworm.repositories.UserRepository;
 import com.lassriver.bookworm.security.JwtService;
@@ -113,5 +115,44 @@ class UserServiceImplTest {
 
         assertThrows(org.springframework.security.authentication.BadCredentialsException.class,
                 () -> userService.login(request));
+    }
+
+    @Test
+    void changeCurrentPassword_HappyPath_UpdatesPassword() {
+        User user = new User();
+        user.setEmail("kevin@test.com");
+        user.setPassword("encoded-current");
+
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        request.setCurrentPassword("Password123!");
+        request.setNewPassword("NewPassword123!");
+
+        when(userRepository.findByEmail("kevin@test.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Password123!", "encoded-current")).thenReturn(true);
+        when(passwordEncoder.matches("NewPassword123!", "encoded-current")).thenReturn(false);
+        when(passwordEncoder.encode("NewPassword123!")).thenReturn("encoded-new");
+
+        userService.changeCurrentPassword("kevin@test.com", request);
+
+        assertEquals("encoded-new", user.getPassword());
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    void changeCurrentPassword_WhenCurrentPasswordIsWrong_ThrowsBusinessRuleException() {
+        User user = new User();
+        user.setEmail("kevin@test.com");
+        user.setPassword("encoded-current");
+
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        request.setCurrentPassword("wrong");
+        request.setNewPassword("NewPassword123!");
+
+        when(userRepository.findByEmail("kevin@test.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "encoded-current")).thenReturn(false);
+
+        assertThrows(BusinessRuleException.class,
+                () -> userService.changeCurrentPassword("kevin@test.com", request));
+        verify(userRepository, never()).save(any(User.class));
     }
 }

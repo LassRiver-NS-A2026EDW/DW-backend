@@ -20,10 +20,13 @@ public class BookController {
 
     @GetMapping
     public ResponseEntity<PageResponse<BookResponse>> getBooks(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String status,
             Pageable pageable) {
-        return ResponseEntity.ok(PageResponse.from(bookService.getBooks(title, category, pageable)));
+        return ResponseEntity.ok(PageResponse.from(bookService.getBooks(search, title, category, language, status, pageable)));
     }
 
     @GetMapping("/{id}")
@@ -43,7 +46,9 @@ public class BookController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<BookResponse> deactivateBook(@PathVariable Long id) {
-        return ResponseEntity.ok(bookService.deactivateBook(id));
+    public ResponseEntity<BookResponse> updateBookStatus(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "INACTIVE") String status) {
+        return ResponseEntity.ok(bookService.updateBookStatus(id, status));
     }
 }
