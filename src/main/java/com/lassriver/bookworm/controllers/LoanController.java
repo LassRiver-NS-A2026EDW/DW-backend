@@ -20,6 +20,11 @@ public class LoanController {
 
     private final LoanService loanService;
 
+    @GetMapping
+    public ResponseEntity<List<LoanResponse>> getAllLoans() {
+        return ResponseEntity.ok(loanService.getAllLoans());
+    }
+
     @PostMapping
     public ResponseEntity<LoanResponse> createLoan(
             @Valid @RequestBody LoanCreateRequest request,

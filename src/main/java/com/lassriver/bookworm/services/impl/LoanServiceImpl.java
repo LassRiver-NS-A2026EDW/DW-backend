@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -43,12 +44,12 @@ public class LoanServiceImpl implements LoanService {
         }
 
         if (loanRepository.existsByBookIdAndStatus(book.getId(), LOAN_STATUS_ACTIVE)) {
-            throw new BusinessRuleException("El libro no está disponible actualmente.");
+            throw new BusinessRuleException("El libro no esta disponible actualmente.");
         }
 
         long activeLoans = loanRepository.countByUserIdAndStatus(user.getId(), LOAN_STATUS_ACTIVE);
         if (activeLoans >= MAX_ACTIVE_LOANS_PER_USER) {
-            throw new BusinessRuleException("Has alcanzado el límite de préstamos activos.");
+            throw new BusinessRuleException("Has alcanzado el limite de prestamos activos.");
         }
 
         Loan loan = Loan.builder()
@@ -65,16 +66,16 @@ public class LoanServiceImpl implements LoanService {
     @Transactional
     public LoanResponse returnLoan(Long loanId, String authenticatedEmail) {
         User user = getUserByEmail(authenticatedEmail);
-
         Loan loan = loanRepository.findById(loanId)
-                .orElseThrow(() -> new ResourceNotFoundException("Préstamo no encontrado con id: " + loanId));
+                .orElseThrow(() -> new ResourceNotFoundException("Prestamo no encontrado con id: " + loanId));
 
-        if (!loan.getUser().getId().equals(user.getId())) {
-            throw new AccessDeniedException("No puedes devolver un préstamo de otro usuario.");
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(user.getRole());
+        if (!isAdmin && !loan.getUser().getId().equals(user.getId())) {
+            throw new AccessDeniedException("No puedes devolver un prestamo de otro usuario.");
         }
 
         if (LOAN_STATUS_RETURNED.equalsIgnoreCase(loan.getStatus())) {
-            throw new BusinessRuleException("El préstamo ya fue devuelto.");
+            throw new BusinessRuleException("El prestamo ya fue devuelto.");
         }
 
         loan.setStatus(LOAN_STATUS_RETURNED);
@@ -90,6 +91,15 @@ public class LoanServiceImpl implements LoanService {
 
         return loanRepository.findAllByUserIdOrderByLoanDateDesc(user.getId())
                 .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LoanResponse> getAllLoans() {
+        return loanRepository.findAll().stream()
+                .sorted(Comparator.comparing(Loan::getLoanDate, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toResponse)
                 .toList();
     }

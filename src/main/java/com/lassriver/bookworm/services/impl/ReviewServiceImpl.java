@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
@@ -55,6 +57,29 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getVisibleReviewsByBook(Long bookId) {
+        if (!bookRepository.existsById(bookId)) {
+            throw new ResourceNotFoundException("Libro no encontrado con id: " + bookId);
+        }
+
+        return reviewRepository.findAllByBookIdAndStatusOrderByCreatedAtDesc(bookId, REVIEW_VISIBLE)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> getReviews(String status) {
+        String effectiveStatus = status == null || status.isBlank() ? REVIEW_VISIBLE : status.toUpperCase();
+        return reviewRepository.findAllByStatusOrderByCreatedAtDesc(effectiveStatus)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public ReviewResponse hideReview(Long reviewId) {
         Review review = reviewRepository.findById(reviewId)
@@ -73,6 +98,7 @@ public class ReviewServiceImpl implements ReviewService {
         return ReviewResponse.builder()
                 .id(review.getId())
                 .userId(review.getUser().getId())
+                .userName(review.getUser().getName())
                 .userEmail(review.getUser().getEmail())
                 .bookId(review.getBook().getId())
                 .bookTitle(review.getBook().getTitle())

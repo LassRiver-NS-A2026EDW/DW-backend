@@ -1,11 +1,15 @@
 package com.lassriver.bookworm.services.impl;
 
 import com.lassriver.bookworm.dtos.request.LoginRequest;
+import com.lassriver.bookworm.dtos.request.UserProfileUpdateRequest;
 import com.lassriver.bookworm.dtos.request.UserRegistrationRequest;
 import com.lassriver.bookworm.dtos.response.LoginResponse;
+import com.lassriver.bookworm.dtos.response.UserProfileResponse;
 import com.lassriver.bookworm.dtos.response.UserRegistrationResponse;
 import com.lassriver.bookworm.entities.User;
+import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.EmailAlreadyExistsException;
+import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.UserRepository;
 import com.lassriver.bookworm.security.JwtService;
 import com.lassriver.bookworm.services.UserService;
@@ -16,6 +20,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -77,6 +82,40 @@ public class UserServiceImpl implements UserService {
                 .id(user.getId())
                 .name(user.getName())
                 .role(user.getRole())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserProfileResponse getCurrentProfile(String authenticatedEmail) {
+        return toProfileResponse(getUserByEmail(authenticatedEmail));
+    }
+
+    @Override
+    @Transactional
+    public UserProfileResponse updateCurrentProfile(String authenticatedEmail, UserProfileUpdateRequest request) {
+        User user = getUserByEmail(authenticatedEmail);
+        if (!user.getEmail().equalsIgnoreCase(request.getEmail())) {
+            throw new BusinessRuleException("El cambio de correo requiere reautenticacion y no esta disponible en esta fase.");
+        }
+
+        user.setName(request.getName());
+        return toProfileResponse(userRepository.save(user));
+    }
+
+    private User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado para el token actual."));
+    }
+
+    private UserProfileResponse toProfileResponse(User user) {
+        return UserProfileResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .gender(user.getGender())
+                .birthDate(user.getBirthDate())
                 .build();
     }
 }

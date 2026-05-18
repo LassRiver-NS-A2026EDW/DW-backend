@@ -11,4 +11,6 @@ public interface LoanService {
     LoanResponse returnLoan(Long loanId, String authenticatedEmail);
 
     List<LoanResponse> getMyLoans(String authenticatedEmail);
+
+    List<LoanResponse> getAllLoans();
 }

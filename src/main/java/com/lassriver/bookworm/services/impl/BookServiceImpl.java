@@ -5,6 +5,7 @@ import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookRepository;
+import com.lassriver.bookworm.repositories.ReviewRepository;
 import com.lassriver.bookworm.services.BookService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,9 @@ import java.util.List;
 public class BookServiceImpl implements BookService {
 
     private final BookRepository bookRepository;
+    private final ReviewRepository reviewRepository;
+
+    private static final String REVIEW_VISIBLE = "VISIBLE";
 
     @Override
     public Page<BookResponse> getBooks(String title, String category, Pageable pageable) {
@@ -39,6 +43,13 @@ public class BookServiceImpl implements BookService {
         };
 
         return bookRepository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    @Override
+    public BookResponse getBook(Long id) {
+        return bookRepository.findById(id)
+                .map(this::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + id));
     }
 
     @Override
@@ -79,9 +90,16 @@ public class BookServiceImpl implements BookService {
         book.setCategory(request.getCategory());
         book.setLanguage(request.getLanguage());
         book.setCoverUrl(request.getCoverUrl());
+        book.setPublisher(request.getPublisher());
+        book.setPublishDate(request.getPublishDate());
+        book.setPages(request.getPages());
+        book.setDescription(request.getDescription());
     }
 
     private BookResponse toResponse(Book book) {
+        long reviewCount = reviewRepository.countByBookIdAndStatus(book.getId(), REVIEW_VISIBLE);
+        Double rating = reviewRepository.averageRatingByBookIdAndStatus(book.getId(), REVIEW_VISIBLE);
+
         return BookResponse.builder()
                 .id(book.getId())
                 .title(book.getTitle())
@@ -91,6 +109,12 @@ public class BookServiceImpl implements BookService {
                 .language(book.getLanguage())
                 .status(book.getStatus())
                 .coverUrl(book.getCoverUrl())
+                .publisher(book.getPublisher())
+                .publishDate(book.getPublishDate())
+                .pages(book.getPages())
+                .description(book.getDescription())
+                .rating(rating == null ? 0.0 : Math.round(rating * 10.0) / 10.0)
+                .reviewCount(reviewCount)
                 .createdAt(book.getCreatedAt())
                 .build();
     }

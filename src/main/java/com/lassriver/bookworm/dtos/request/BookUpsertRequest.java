@@ -1,8 +1,11 @@
 package com.lassriver.bookworm.dtos.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+
+import java.time.LocalDate;
 
 @Data
 public class BookUpsertRequest {
@@ -27,4 +30,15 @@ public class BookUpsertRequest {
 
     @Size(max = 2000, message = "La URL de portada no puede superar 2000 caracteres")
     private String coverUrl;
+
+    @Size(max = 255, message = "La editorial no puede superar 255 caracteres")
+    private String publisher;
+
+    private LocalDate publishDate;
+
+    @Positive(message = "El nÃºmero de pÃ¡ginas debe ser positivo")
+    private Integer pages;
+
+    @Size(max = 5000, message = "La descripciÃ³n no puede superar 5000 caracteres")
+    private String description;
 }

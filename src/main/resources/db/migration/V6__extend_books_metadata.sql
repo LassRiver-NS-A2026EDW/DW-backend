@@ -1,0 +1,4 @@
+ALTER TABLE books ADD COLUMN publisher VARCHAR(255);
+ALTER TABLE books ADD COLUMN publish_date DATE;
+ALTER TABLE books ADD COLUMN pages INT;
+ALTER TABLE books ADD COLUMN description TEXT;
