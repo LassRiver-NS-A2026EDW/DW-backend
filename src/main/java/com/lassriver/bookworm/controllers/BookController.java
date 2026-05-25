@@ -64,8 +64,10 @@ public class BookController {
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<BookResponse> deactivateBook(@PathVariable Long id) {
-        return ResponseEntity.ok(bookService.deactivateBook(id));
+    public ResponseEntity<BookResponse> updateBookStatus(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "INACTIVE") String status) {
+        return ResponseEntity.ok(bookService.updateBookStatus(id, status));
     }
 
     @PostMapping(value = "/{id}/pdf/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

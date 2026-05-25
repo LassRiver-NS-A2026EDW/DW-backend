@@ -1,6 +1,7 @@
 package com.lassriver.bookworm.services;
 
 import com.lassriver.bookworm.dtos.request.LoginRequest;
+import com.lassriver.bookworm.dtos.request.PasswordChangeRequest;
 import com.lassriver.bookworm.dtos.request.UserProfileUpdateRequest;
 import com.lassriver.bookworm.dtos.request.UserRegistrationRequest;
 import com.lassriver.bookworm.dtos.response.LoginResponse;
@@ -15,4 +16,6 @@ public interface UserService {
     UserProfileResponse getCurrentProfile(String authenticatedEmail);
 
     UserProfileResponse updateCurrentProfile(String authenticatedEmail, UserProfileUpdateRequest request);
+
+    void changeCurrentPassword(String authenticatedEmail, PasswordChangeRequest request);
 }

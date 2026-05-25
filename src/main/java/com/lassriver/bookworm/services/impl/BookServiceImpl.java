@@ -3,6 +3,7 @@ package com.lassriver.bookworm.services.impl;
 import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.entities.Book;
+import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
@@ -30,11 +31,6 @@ public class BookServiceImpl implements BookService {
 
     private static final String REVIEW_VISIBLE = "VISIBLE";
     private static final String LOAN_ACTIVE = "ACTIVE";
-
-    @Override
-    public Page<BookResponse> getBooks(String title, String category, Pageable pageable) {
-        return getBooks(null, title, category, null, null, pageable, null);
-    }
 
     @Override
     public Page<BookResponse> getBooks(String search, String title, String category, String language, String status, Pageable pageable) {
@@ -68,7 +64,7 @@ public class BookServiceImpl implements BookService {
             }
 
             if (status != null && !status.isBlank()) {
-                predicates.add(cb.equal(cb.upper(root.get("status")), status.toUpperCase()));
+                predicates.add(cb.equal(cb.upper(root.get("status")), normalizeStatus(status)));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -112,14 +108,22 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    public BookResponse deactivateBook(Long id) {
+    public BookResponse updateBookStatus(Long id, String status) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + id));
 
-        book.setStatus("INACTIVE");
+        book.setStatus(normalizeStatus(status));
 
         Book updatedBook = bookRepository.save(book);
         return toResponse(updatedBook);
+    }
+
+    private String normalizeStatus(String status) {
+        String normalized = status == null || status.isBlank() ? "INACTIVE" : status.trim().toUpperCase();
+        if (!"ACTIVE".equals(normalized) && !"INACTIVE".equals(normalized)) {
+            throw new BusinessRuleException("Estado de libro invalido: " + status);
+        }
+        return normalized;
     }
 
     private void mapRequestToEntity(BookUpsertRequest request, Book book) {
