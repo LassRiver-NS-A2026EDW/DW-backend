@@ -18,4 +18,6 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     List<Loan> findAllByUserIdOrderByLoanDateDesc(Long userId);
 
     boolean existsByUserIdAndBookId(Long userId, Long bookId);
+
+    boolean existsByUserIdAndBookIdAndStatus(Long userId, Long bookId, String status);
 }

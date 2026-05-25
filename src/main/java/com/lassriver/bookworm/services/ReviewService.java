@@ -13,4 +13,6 @@ public interface ReviewService {
     List<ReviewResponse> getReviews(String status);
 
     ReviewResponse hideReview(Long reviewId);
+
+    ReviewResponse showReview(Long reviewId);
 }

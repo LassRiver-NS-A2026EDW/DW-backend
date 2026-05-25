@@ -6,7 +6,9 @@ import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookRepository;
+import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
+import com.lassriver.bookworm.repositories.UserRepository;
 import com.lassriver.bookworm.services.BookService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -24,11 +26,19 @@ public class BookServiceImpl implements BookService {
 
     private final BookRepository bookRepository;
     private final ReviewRepository reviewRepository;
+    private final LoanRepository loanRepository;
+    private final UserRepository userRepository;
 
     private static final String REVIEW_VISIBLE = "VISIBLE";
+    private static final String LOAN_ACTIVE = "ACTIVE";
 
     @Override
     public Page<BookResponse> getBooks(String search, String title, String category, String language, String status, Pageable pageable) {
+        return getBooks(search, title, category, language, status, pageable, null);
+    }
+
+    @Override
+    public Page<BookResponse> getBooks(String search, String title, String category, String language, String status, Pageable pageable, String authenticatedEmail) {
         Specification<Book> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -37,7 +47,8 @@ public class BookServiceImpl implements BookService {
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("title")), term),
                         cb.like(cb.lower(root.get("author")), term),
-                        cb.like(cb.lower(root.get("isbn")), term)));
+                        cb.like(cb.lower(root.get("isbn")), term),
+                        cb.like(cb.lower(root.get("description")), term)));
             }
 
             if (title != null && !title.isBlank()) {
@@ -59,13 +70,20 @@ public class BookServiceImpl implements BookService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return bookRepository.findAll(spec, pageable).map(this::toResponse);
+        Long userId = resolveUserId(authenticatedEmail);
+        return bookRepository.findAll(spec, pageable).map(book -> toResponse(book, userId));
     }
 
     @Override
     public BookResponse getBook(Long id) {
+        return getBook(id, null);
+    }
+
+    @Override
+    public BookResponse getBook(Long id, String authenticatedEmail) {
+        Long userId = resolveUserId(authenticatedEmail);
         return bookRepository.findById(id)
-                .map(this::toResponse)
+                .map(book -> toResponse(book, userId))
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + id));
     }
 
@@ -122,8 +140,15 @@ public class BookServiceImpl implements BookService {
     }
 
     private BookResponse toResponse(Book book) {
+        return toResponse(book, null);
+    }
+
+    private BookResponse toResponse(Book book, Long userId) {
         long reviewCount = reviewRepository.countByBookIdAndStatus(book.getId(), REVIEW_VISIBLE);
         Double rating = reviewRepository.averageRatingByBookIdAndStatus(book.getId(), REVIEW_VISIBLE);
+        boolean hasPdf = book.getPdfPath() != null && !book.getPdfPath().isBlank();
+        boolean reservedByMe = userId != null
+                && loanRepository.existsByUserIdAndBookIdAndStatus(userId, book.getId(), LOAN_ACTIVE);
 
         return BookResponse.builder()
                 .id(book.getId())
@@ -140,7 +165,19 @@ public class BookServiceImpl implements BookService {
                 .description(book.getDescription())
                 .rating(rating == null ? 0.0 : Math.round(rating * 10.0) / 10.0)
                 .reviewCount(reviewCount)
+                .hasPdf(hasPdf)
+                .pdfUrl(hasPdf ? "/api/books/" + book.getId() + "/pdf" : null)
+                .reservedByMe(reservedByMe)
                 .createdAt(book.getCreatedAt())
                 .build();
+    }
+
+    private Long resolveUserId(String authenticatedEmail) {
+        if (authenticatedEmail == null || authenticatedEmail.isBlank()) {
+            return null;
+        }
+        return userRepository.findByEmail(authenticatedEmail)
+                .map(user -> user.getId())
+                .orElse(null);
     }
 }
