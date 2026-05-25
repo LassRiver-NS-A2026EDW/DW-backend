@@ -89,6 +89,16 @@ public class ReviewServiceImpl implements ReviewService {
         return toResponse(reviewRepository.save(review));
     }
 
+    @Override
+    @Transactional
+    public ReviewResponse showReview(Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reseña no encontrada con id: " + reviewId));
+
+        review.setStatus(REVIEW_VISIBLE);
+        return toResponse(reviewRepository.save(review));
+    }
+
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado para el token actual."));

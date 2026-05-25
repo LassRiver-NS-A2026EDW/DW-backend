@@ -42,4 +42,9 @@ public class ReviewController {
     public ResponseEntity<ReviewResponse> hideReview(@PathVariable Long id) {
         return ResponseEntity.ok(reviewService.hideReview(id));
     }
+
+    @PatchMapping("/{id}/show")
+    public ResponseEntity<ReviewResponse> showReview(@PathVariable Long id) {
+        return ResponseEntity.ok(reviewService.showReview(id));
+    }
 }

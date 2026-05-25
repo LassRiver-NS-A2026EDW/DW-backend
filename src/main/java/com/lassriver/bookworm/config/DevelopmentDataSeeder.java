@@ -29,7 +29,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DevelopmentDataSeeder implements CommandLineRunner {
 
-    private static final String DEFAULT_PASSWORD = "Password123!";
+    private static final String DEFAULT_PASSWORD = "LassRiver2026!";
 
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
@@ -50,20 +50,19 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     private Map<String, Book> seedBooks() {
         Map<String, Book> seeded = new LinkedHashMap<>();
         for (SeedBook seed : books()) {
-            Book book = bookRepository.findByIsbn(seed.isbn())
-                    .orElseGet(() -> bookRepository.save(Book.builder()
-                            .title(seed.title())
-                            .author(seed.author())
-                            .isbn(seed.isbn())
-                            .category(seed.category())
-                            .language(seed.language())
-                            .publisher(seed.publisher())
-                            .publishDate(seed.publishDate())
-                            .pages(seed.pages())
-                            .description(seed.description())
-                            .coverUrl(seed.coverUrl())
-                            .status(seed.available() ? "ACTIVE" : "INACTIVE")
-                            .build()));
+            Book book = bookRepository.findByIsbn(seed.isbn()).orElseGet(Book::new);
+            book.setTitle(seed.title());
+            book.setAuthor(seed.author());
+            book.setIsbn(seed.isbn());
+            book.setCategory(seed.category());
+            book.setLanguage(seed.language());
+            book.setPublisher(seed.publisher());
+            book.setPublishDate(seed.publishDate());
+            book.setPages(seed.pages());
+            book.setDescription(seed.description());
+            book.setCoverUrl(seed.coverUrl());
+            book.setStatus(seed.available() ? "ACTIVE" : "INACTIVE");
+            book = bookRepository.save(book);
             seeded.put(seed.key(), book);
         }
         return seeded;
@@ -72,16 +71,15 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     private Map<String, User> seedUsers() {
         Map<String, User> seeded = new LinkedHashMap<>();
         for (SeedUser seed : users()) {
-            User user = userRepository.findByEmail(seed.email())
-                    .orElseGet(() -> userRepository.save(User.builder()
-                            .name(seed.name())
-                            .email(seed.email())
-                            .password(passwordEncoder.encode(DEFAULT_PASSWORD))
-                            .role(seed.role())
-                            .language("es")
-                            .gender(seed.gender())
-                            .birthDate(seed.birthDate())
-                            .build()));
+            User user = userRepository.findByEmail(seed.email()).orElseGet(User::new);
+            user.setName(seed.name());
+            user.setEmail(seed.email());
+            user.setPassword(passwordEncoder.encode(DEFAULT_PASSWORD));
+            user.setRole(seed.role());
+            user.setLanguage("es");
+            user.setGender(seed.gender());
+            user.setBirthDate(seed.birthDate());
+            user = userRepository.save(user);
             seeded.put(seed.key(), user);
         }
         return seeded;
@@ -182,7 +180,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     private List<SeedUser> users() {
         return List.of(
                 new SeedUser("u1", "Daniel Lasso", "daniel.lasso@lassriver.com", "USER", Gender.M, LocalDate.parse("1998-04-15")),
-                new SeedUser("u2", "Ana Rivera", "ana.rivera@lassriver.com", "USER", Gender.F, LocalDate.parse("1997-08-21")),
+                new SeedUser("u2", "Ana Rivera", "ana.rivera@lassriver.com", "LIBRARIAN", Gender.F, LocalDate.parse("1997-08-21")),
                 new SeedUser("u3", "Admin LassRiver", "admin@lassriver.com", "ADMIN", Gender.NR, LocalDate.parse("1990-01-01")),
                 new SeedUser("u4", "Carlos Mendoza", "carlos.mendoza@lassriver.com", "USER", Gender.M, LocalDate.parse("1995-11-12")),
                 new SeedUser("u5", "Maria Gonzalez", "maria.gonzalez@lassriver.com", "USER", Gender.F, LocalDate.parse("1996-03-09")));
