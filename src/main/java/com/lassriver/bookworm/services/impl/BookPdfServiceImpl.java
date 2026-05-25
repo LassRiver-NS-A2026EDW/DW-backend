@@ -21,7 +21,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.IDN;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -29,6 +34,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -38,6 +46,7 @@ public class BookPdfServiceImpl implements BookPdfService {
 
     private static final String LOAN_ACTIVE = "ACTIVE";
     private static final long DEFAULT_MAX_PDF_BYTES = 50L * 1024L * 1024L;
+    private static final int MAX_REMOTE_PDF_REDIRECTS = 3;
 
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
@@ -48,6 +57,9 @@ public class BookPdfServiceImpl implements BookPdfService {
 
     @Value("${bookworm.storage.max-pdf-bytes:52428800}")
     private long maxPdfBytes;
+
+    @Value("${bookworm.storage.allowed-pdf-hosts:}")
+    private String allowedPdfHosts;
 
     @Override
     @Transactional
@@ -75,9 +87,7 @@ public class BookPdfServiceImpl implements BookPdfService {
     @Transactional
     public BookPdfResponse downloadPdfFromUrl(Long bookId, String url) {
         String cleanUrl = url == null ? "" : url.trim();
-        if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-            throw new BusinessRuleException("URL invalida. Debe comenzar con http:// o https://.");
-        }
+        URI currentUri = validateRemotePdfUri(cleanUrl);
 
         Book book = getBook(bookId);
         String filename = buildPdfFilename(book, cleanUrl);
@@ -85,16 +95,24 @@ public class BookPdfServiceImpl implements BookPdfService {
 
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .build();
-        HttpRequest request = HttpRequest.newBuilder(URI.create(cleanUrl))
-                .timeout(Duration.ofSeconds(60))
-                .GET()
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .build();
 
         try {
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<InputStream> response = sendRemotePdfRequest(client, currentUri);
+            for (int redirects = 0; isRedirect(response.statusCode()) && redirects < MAX_REMOTE_PDF_REDIRECTS; redirects++) {
+                closeQuietly(response.body());
+                currentUri = resolveRedirectUri(currentUri, response);
+                response = sendRemotePdfRequest(client, currentUri);
+            }
+
+            if (isRedirect(response.statusCode())) {
+                closeQuietly(response.body());
+                throw new BusinessRuleException("La descarga del PDF excede el limite de redirecciones permitido.");
+            }
+
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                closeQuietly(response.body());
                 throw new BusinessRuleException("No se pudo descargar el PDF. Estado remoto: " + response.statusCode());
             }
             String contentType = response.headers().firstValue("Content-Type").orElse("");
@@ -105,7 +123,7 @@ public class BookPdfServiceImpl implements BookPdfService {
             try (InputStream input = response.body()) {
                 copyWithLimit(input, target, maxPdfBytes > 0 ? maxPdfBytes : DEFAULT_MAX_PDF_BYTES);
             }
-            replaceBookPdf(book, target, filename, cleanUrl);
+            replaceBookPdf(book, target, filename, currentUri.toString());
         } catch (BusinessRuleException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -113,6 +131,140 @@ public class BookPdfServiceImpl implements BookPdfService {
         }
 
         return toResponse(book, "PDF descargado y guardado exitosamente.");
+    }
+
+    private HttpResponse<InputStream> sendRemotePdfRequest(HttpClient client, URI uri) throws IOException, InterruptedException {
+        URI safeUri = validateRemotePdfUri(uri.toString());
+        HttpRequest request = HttpRequest.newBuilder(safeUri)
+                .timeout(Duration.ofSeconds(60))
+                .GET()
+                .build();
+        return client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+    }
+
+    private URI validateRemotePdfUri(String rawUrl) {
+        URI uri;
+        try {
+            uri = new URI(rawUrl == null ? "" : rawUrl.trim());
+        } catch (URISyntaxException ex) {
+            throw new BusinessRuleException("URL invalida para descargar el PDF.");
+        }
+
+        String scheme = uri.getScheme();
+        if (!"https".equalsIgnoreCase(scheme)) {
+            throw new BusinessRuleException("URL invalida. La descarga remota solo permite HTTPS.");
+        }
+        if (uri.getUserInfo() != null || uri.getFragment() != null) {
+            throw new BusinessRuleException("URL invalida para descargar el PDF.");
+        }
+        if (uri.getPort() != -1 && uri.getPort() != 443) {
+            throw new BusinessRuleException("URL invalida. Solo se permite el puerto HTTPS por defecto.");
+        }
+
+        String host = uri.getHost();
+        if (host == null || host.isBlank()) {
+            throw new BusinessRuleException("URL invalida. Debe incluir un host publico permitido.");
+        }
+
+        String safeHost = normalizeHost(host);
+        if (!allowedPdfHostSet().contains(safeHost)) {
+            throw new BusinessRuleException("Host no permitido para descarga remota de PDFs.");
+        }
+        validatePublicHostResolution(safeHost);
+
+        try {
+            String path = uri.getPath() == null || uri.getPath().isBlank() ? "/" : uri.getPath();
+            return new URI("https", null, safeHost, uri.getPort(), path, uri.getQuery(), null);
+        } catch (URISyntaxException ex) {
+            throw new BusinessRuleException("URL invalida para descargar el PDF.");
+        }
+    }
+
+    private Set<String> allowedPdfHostSet() {
+        Set<String> hosts = Arrays.stream((allowedPdfHosts == null ? "" : allowedPdfHosts).split(","))
+                .map(String::trim)
+                .filter(host -> !host.isBlank())
+                .map(this::normalizeHost)
+                .collect(Collectors.toUnmodifiableSet());
+
+        if (hosts.isEmpty()) {
+            throw new BusinessRuleException("La descarga remota de PDFs no esta configurada para ningun host permitido.");
+        }
+        return hosts;
+    }
+
+    private String normalizeHost(String host) {
+        return IDN.toASCII(host.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private void validatePublicHostResolution(String host) {
+        try {
+            InetAddress[] addresses = InetAddress.getAllByName(host);
+            if (addresses.length == 0) {
+                throw new BusinessRuleException("No se pudo resolver el host remoto.");
+            }
+            for (InetAddress address : addresses) {
+                if (isUnsafeRemoteAddress(address)) {
+                    throw new BusinessRuleException("El host remoto no puede resolver a una red privada o local.");
+                }
+            }
+        } catch (IOException ex) {
+            throw new BusinessRuleException("No se pudo resolver el host remoto.");
+        }
+    }
+
+    private boolean isUnsafeRemoteAddress(InetAddress address) {
+        if (address.isAnyLocalAddress()
+                || address.isLoopbackAddress()
+                || address.isLinkLocalAddress()
+                || address.isSiteLocalAddress()
+                || address.isMulticastAddress()) {
+            return true;
+        }
+
+        byte[] bytes = address.getAddress();
+        if (address instanceof Inet4Address) {
+            int first = bytes[0] & 0xff;
+            int second = bytes[1] & 0xff;
+            return first == 0
+                    || first == 10
+                    || first == 127
+                    || (first == 100 && second >= 64 && second <= 127)
+                    || (first == 169 && second == 254)
+                    || (first == 172 && second >= 16 && second <= 31)
+                    || (first == 192 && second == 168)
+                    || (first == 198 && (second == 18 || second == 19))
+                    || first >= 224;
+        }
+
+        if (address instanceof Inet6Address) {
+            int first = bytes[0] & 0xff;
+            return (first & 0xfe) == 0xfc;
+        }
+
+        return true;
+    }
+
+    private boolean isRedirect(int statusCode) {
+        return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
+    }
+
+    private URI resolveRedirectUri(URI currentUri, HttpResponse<?> response) {
+        String location = response.headers()
+                .firstValue("Location")
+                .orElseThrow(() -> new BusinessRuleException("Redireccion remota sin cabecera Location."));
+        return validateRemotePdfUri(currentUri.resolve(location).toString());
+    }
+
+    private void closeQuietly(InputStream input) {
+        if (input == null) {
+            return;
+        }
+        try {
+            input.close();
+        } catch (IOException ignored) {
+            // Nothing to do while closing a rejected remote response body.
+        }
     }
 
     @Override
