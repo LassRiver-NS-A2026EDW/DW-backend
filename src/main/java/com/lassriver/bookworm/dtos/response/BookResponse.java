@@ -23,5 +23,8 @@ public class BookResponse {
     private String description;
     private Double rating;
     private Long reviewCount;
+    private Boolean hasPdf;
+    private String pdfUrl;
+    private Boolean reservedByMe;
     private LocalDateTime createdAt;
 }

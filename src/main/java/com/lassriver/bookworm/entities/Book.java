@@ -50,6 +50,15 @@ public class Book {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "pdf_path", columnDefinition = "TEXT")
+    private String pdfPath;
+
+    @Column(name = "pdf_source_url", columnDefinition = "TEXT")
+    private String pdfSourceUrl;
+
+    @Column(name = "pdf_original_filename", length = 255)
+    private String pdfOriginalFilename;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
