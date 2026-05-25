@@ -35,3 +35,12 @@ logging:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+bookworm:
+  storage:
+    pdf-dir: ${BOOKWORM_PDF_DIR:uploads/pdfs}
+    max-pdf-bytes: ${BOOKWORM_MAX_PDF_BYTES:52428800}
+  ai:
+    base-url: ${BOOKWORM_AI_BASE_URL:https://api.deepseek.com}
+    api-key: ${DEEPSEEK_API_KEY:}
+    model: ${BOOKWORM_AI_MODEL:deepseek-v4-flash}
