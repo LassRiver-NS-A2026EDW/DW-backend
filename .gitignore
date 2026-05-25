@@ -37,3 +37,4 @@ build/
 .env
 env.properties
 text.txt
+uploads/

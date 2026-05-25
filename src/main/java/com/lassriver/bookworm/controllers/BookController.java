@@ -1,15 +1,29 @@
 package com.lassriver.bookworm.controllers;
 
 import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
+import com.lassriver.bookworm.dtos.request.PdfDownloadRequest;
+import com.lassriver.bookworm.dtos.response.BookPdfResource;
+import com.lassriver.bookworm.dtos.response.BookPdfResponse;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.dtos.response.PageResponse;
+import com.lassriver.bookworm.services.BookPdfService;
 import com.lassriver.bookworm.services.BookService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.Resource;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/books")
@@ -17,18 +31,25 @@ import org.springframework.web.bind.annotation.*;
 public class BookController {
 
     private final BookService bookService;
+    private final BookPdfService bookPdfService;
 
     @GetMapping
     public ResponseEntity<PageResponse<BookResponse>> getBooks(
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String category,
-            Pageable pageable) {
-        return ResponseEntity.ok(PageResponse.from(bookService.getBooks(title, category, pageable)));
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String status,
+            Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails == null ? null : userDetails.getUsername();
+        return ResponseEntity.ok(PageResponse.from(bookService.getBooks(search, title, category, language, status, pageable, email)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<BookResponse> getBook(@PathVariable Long id) {
-        return ResponseEntity.ok(bookService.getBook(id));
+    public ResponseEntity<BookResponse> getBook(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails == null ? null : userDetails.getUsername();
+        return ResponseEntity.ok(bookService.getBook(id, email));
     }
 
     @PostMapping
@@ -45,5 +66,35 @@ public class BookController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<BookResponse> deactivateBook(@PathVariable Long id) {
         return ResponseEntity.ok(bookService.deactivateBook(id));
+    }
+
+    @PostMapping(value = "/{id}/pdf/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<BookPdfResponse> uploadPdf(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(bookPdfService.uploadPdf(id, file));
+    }
+
+    @PostMapping("/{id}/pdf/download")
+    public ResponseEntity<BookPdfResponse> downloadPdf(
+            @PathVariable Long id,
+            @Valid @RequestBody PdfDownloadRequest request) {
+        return ResponseEntity.ok(bookPdfService.downloadPdfFromUrl(id, request.getUrl()));
+    }
+
+    @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<Resource> servePdf(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        BookPdfResource pdf = bookPdfService.loadPdfForReading(id, userDetails.getUsername());
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(0, TimeUnit.SECONDS).cachePrivate().mustRevalidate())
+                .header("X-Accel-Buffering", "no")
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline()
+                        .filename(pdf.getFilename())
+                        .build()
+                        .toString())
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf.getResource());
     }
 }
