@@ -1,19 +1,19 @@
 package com.lassriver.bookworm.entities;
 
-import com.lassriver.bookworm.entities.enums.LoanStatus;
+import com.lassriver.bookworm.entities.enums.ReservationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "loans")
+@Table(name = "reservations")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Loan {
+public class Reservation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,45 +28,32 @@ public class Loan {
     private Book book;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "copy_id")
-    private BookCopy copy;
-
-    @Column(name = "loan_date", nullable = false)
-    private LocalDateTime loanDate;
-
-    @Column(name = "due_date", nullable = false)
-    private LocalDateTime dueDate;
-
-    @Column(name = "returned_at")
-    private LocalDateTime returnedAt;
+    @JoinColumn(name = "fulfilled_loan_id")
+    private Loan fulfilledLoan;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private LoanStatus status;
+    private ReservationStatus status;
 
-    @Column(name = "renewal_count", nullable = false)
-    private Integer renewalCount;
+    @Column(name = "requested_loan_duration_minutes", nullable = false)
+    private Integer requestedLoanDurationMinutes;
 
     @Column(name = "created_at", updatable = false, nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "fulfilled_at")
+    private LocalDateTime fulfilledAt;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
         if (this.createdAt == null) {
-            this.createdAt = now;
-        }
-        if (this.loanDate == null) {
-            this.loanDate = now;
-        }
-        if (this.dueDate == null) {
-            this.dueDate = this.loanDate.plusDays(7);
+            this.createdAt = LocalDateTime.now();
         }
         if (this.status == null) {
-            this.status = LoanStatus.ACTIVE;
-        }
-        if (this.renewalCount == null) {
-            this.renewalCount = 0;
+            this.status = ReservationStatus.WAITING;
         }
     }
 }
