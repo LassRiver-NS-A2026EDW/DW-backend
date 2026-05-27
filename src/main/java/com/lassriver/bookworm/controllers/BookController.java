@@ -2,10 +2,14 @@ package com.lassriver.bookworm.controllers;
 
 import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
 import com.lassriver.bookworm.dtos.request.PdfDownloadRequest;
+import com.lassriver.bookworm.dtos.response.BookAvailabilityResponse;
+import com.lassriver.bookworm.dtos.response.BookCopyResponse;
+import com.lassriver.bookworm.dtos.response.BookFacetsResponse;
 import com.lassriver.bookworm.dtos.response.BookPdfResource;
 import com.lassriver.bookworm.dtos.response.BookPdfResponse;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.dtos.response.PageResponse;
+import com.lassriver.bookworm.services.BookCopyService;
 import com.lassriver.bookworm.services.BookPdfService;
 import com.lassriver.bookworm.services.BookService;
 import jakarta.validation.Valid;
@@ -32,6 +36,7 @@ public class BookController {
 
     private final BookService bookService;
     private final BookPdfService bookPdfService;
+    private final BookCopyService bookCopyService;
 
     @GetMapping
     public ResponseEntity<PageResponse<BookResponse>> getBooks(
@@ -40,16 +45,37 @@ public class BookController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String language,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String availability,
             Pageable pageable,
             @AuthenticationPrincipal UserDetails userDetails) {
         String email = userDetails == null ? null : userDetails.getUsername();
-        return ResponseEntity.ok(PageResponse.from(bookService.getBooks(search, title, category, language, status, pageable, email)));
+        return ResponseEntity.ok(PageResponse.from(bookService.getBooks(search, title, category, language, status, availability, pageable, email)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<BookResponse> getBook(@PathVariable Long id, @AuthenticationPrincipal UserDetails userDetails) {
         String email = userDetails == null ? null : userDetails.getUsername();
         return ResponseEntity.ok(bookService.getBook(id, email));
+    }
+
+    @GetMapping("/facets")
+    public ResponseEntity<BookFacetsResponse> getBookFacets() {
+        return ResponseEntity.ok(bookService.getBookFacets());
+    }
+
+    @GetMapping("/{id}/availability")
+    public ResponseEntity<BookAvailabilityResponse> getAvailability(@PathVariable Long id) {
+        return ResponseEntity.ok(bookCopyService.getAvailability(id));
+    }
+
+    @GetMapping("/{id}/copies")
+    public ResponseEntity<java.util.List<BookCopyResponse>> getCopies(@PathVariable Long id) {
+        return ResponseEntity.ok(bookCopyService.getCopies(id));
+    }
+
+    @PostMapping("/{id}/copies")
+    public ResponseEntity<BookCopyResponse> createCopy(@PathVariable Long id) {
+        return new ResponseEntity<>(bookCopyService.createCopy(id), HttpStatus.CREATED);
     }
 
     @PostMapping

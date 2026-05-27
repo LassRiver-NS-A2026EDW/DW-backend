@@ -1,6 +1,8 @@
 package com.lassriver.bookworm.controllers;
 
 import com.lassriver.bookworm.dtos.request.LoanCreateRequest;
+import com.lassriver.bookworm.dtos.request.LoanRenewRequest;
+import com.lassriver.bookworm.dtos.response.LoanRenewalResponse;
 import com.lassriver.bookworm.dtos.response.LoanResponse;
 import com.lassriver.bookworm.services.LoanService;
 import jakarta.validation.Valid;
@@ -38,6 +40,21 @@ public class LoanController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails) {
         return ResponseEntity.ok(loanService.returnLoan(id, userDetails.getUsername()));
+    }
+
+    @PostMapping("/{id}/renew")
+    public ResponseEntity<LoanResponse> renewLoan(
+            @PathVariable Long id,
+            @Valid @RequestBody LoanRenewRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(loanService.renewLoan(id, request, userDetails.getUsername()));
+    }
+
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<LoanRenewalResponse>> getLoanHistory(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(loanService.getLoanHistory(id, userDetails.getUsername()));
     }
 
     @GetMapping("/my-loans")

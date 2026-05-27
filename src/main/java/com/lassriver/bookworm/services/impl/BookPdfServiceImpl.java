@@ -4,6 +4,7 @@ import com.lassriver.bookworm.dtos.response.BookPdfResource;
 import com.lassriver.bookworm.dtos.response.BookPdfResponse;
 import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.entities.User;
+import com.lassriver.bookworm.entities.enums.LoanStatus;
 import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookRepository;
@@ -44,7 +45,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BookPdfServiceImpl implements BookPdfService {
 
-    private static final String LOAN_ACTIVE = "ACTIVE";
     private static final long DEFAULT_MAX_PDF_BYTES = 50L * 1024L * 1024L;
     private static final int MAX_REMOTE_PDF_REDIRECTS = 3;
 
@@ -277,7 +277,7 @@ public class BookPdfServiceImpl implements BookPdfService {
 
         User user = getUser(authenticatedEmail);
         boolean canRead = isPrivileged(user)
-                || loanRepository.existsByUserIdAndBookIdAndStatus(user.getId(), book.getId(), LOAN_ACTIVE);
+                || loanRepository.existsByUserIdAndBookIdAndStatus(user.getId(), book.getId(), LoanStatus.ACTIVE);
         if (!canRead) {
             throw new AccessDeniedException("Debes tener un prestamo activo para leer este libro.");
         }

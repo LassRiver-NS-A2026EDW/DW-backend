@@ -1,21 +1,31 @@
 package com.lassriver.bookworm.services.impl;
 
 import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
+import com.lassriver.bookworm.dtos.response.BookFacetsResponse;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.entities.Book;
+import com.lassriver.bookworm.entities.BookCopy;
+import com.lassriver.bookworm.entities.enums.BookCopyStatus;
+import com.lassriver.bookworm.entities.enums.LoanStatus;
+import com.lassriver.bookworm.entities.enums.ReservationStatus;
 import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
+import com.lassriver.bookworm.repositories.BookCopyRepository;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
+import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
 import com.lassriver.bookworm.services.BookService;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,17 +38,20 @@ public class BookServiceImpl implements BookService {
     private final ReviewRepository reviewRepository;
     private final LoanRepository loanRepository;
     private final UserRepository userRepository;
+    private final BookCopyRepository bookCopyRepository;
+    private final ReservationRepository reservationRepository;
 
     private static final String REVIEW_VISIBLE = "VISIBLE";
-    private static final String LOAN_ACTIVE = "ACTIVE";
 
     @Override
+    @Transactional(readOnly = true)
     public Page<BookResponse> getBooks(String search, String title, String category, String language, String status, Pageable pageable) {
-        return getBooks(search, title, category, language, status, pageable, null);
+        return getBooks(search, title, category, language, status, null, pageable, null);
     }
 
     @Override
-    public Page<BookResponse> getBooks(String search, String title, String category, String language, String status, Pageable pageable, String authenticatedEmail) {
+    @Transactional(readOnly = true)
+    public Page<BookResponse> getBooks(String search, String title, String category, String language, String status, String availability, Pageable pageable, String authenticatedEmail) {
         Specification<Book> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -67,6 +80,25 @@ public class BookServiceImpl implements BookService {
                 predicates.add(cb.equal(cb.upper(root.get("status")), normalizeStatus(status)));
             }
 
+            if (availability != null && !availability.isBlank() && !"all".equalsIgnoreCase(availability)) {
+                Subquery<Long> availableCopyQuery = query.subquery(Long.class);
+                Root<BookCopy> copyRoot = availableCopyQuery.from(BookCopy.class);
+                availableCopyQuery.select(copyRoot.get("id"))
+                        .where(
+                                cb.equal(copyRoot.get("book").get("id"), root.get("id")),
+                                cb.equal(copyRoot.get("status"), BookCopyStatus.AVAILABLE));
+                Predicate activeBook = cb.equal(cb.upper(root.get("status")), "ACTIVE");
+                Predicate hasAvailableCopy = cb.exists(availableCopyQuery);
+
+                if ("available".equalsIgnoreCase(availability)) {
+                    predicates.add(cb.and(activeBook, hasAvailableCopy));
+                } else if ("unavailable".equalsIgnoreCase(availability)) {
+                    predicates.add(cb.or(cb.not(activeBook), cb.not(hasAvailableCopy)));
+                } else {
+                    throw new BusinessRuleException("Filtro de disponibilidad invalido: " + availability);
+                }
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
@@ -75,11 +107,13 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public BookResponse getBook(Long id) {
         return getBook(id, null);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public BookResponse getBook(Long id, String authenticatedEmail) {
         Long userId = resolveUserId(authenticatedEmail);
         return bookRepository.findById(id)
@@ -88,15 +122,27 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public BookFacetsResponse getBookFacets() {
+        return BookFacetsResponse.builder()
+                .categories(bookRepository.findDistinctCategories())
+                .languages(bookRepository.findDistinctLanguages())
+                .build();
+    }
+
+    @Override
+    @Transactional
     public BookResponse createBook(BookUpsertRequest request) {
         Book book = new Book();
         mapRequestToEntity(request, book);
 
         Book savedBook = bookRepository.save(book);
+        ensureInitialCopy(savedBook);
         return toResponse(savedBook);
     }
 
     @Override
+    @Transactional
     public BookResponse updateBook(Long id, BookUpsertRequest request) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + id));
@@ -108,6 +154,7 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
+    @Transactional
     public BookResponse updateBookStatus(Long id, String status) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + id));
@@ -115,7 +162,21 @@ public class BookServiceImpl implements BookService {
         book.setStatus(normalizeStatus(status));
 
         Book updatedBook = bookRepository.save(book);
+        if ("ACTIVE".equals(updatedBook.getStatus())) {
+            ensureInitialCopy(updatedBook);
+        }
         return toResponse(updatedBook);
+    }
+
+    private void ensureInitialCopy(Book book) {
+        if (!"ACTIVE".equalsIgnoreCase(book.getStatus()) || bookCopyRepository.countByBookId(book.getId()) > 0) {
+            return;
+        }
+        bookCopyRepository.save(BookCopy.builder()
+                .book(book)
+                .copyCode("BOOK-" + book.getId() + "-COPY-1")
+                .status(BookCopyStatus.AVAILABLE)
+                .build());
     }
 
     private String normalizeStatus(String status) {
@@ -148,7 +209,10 @@ public class BookServiceImpl implements BookService {
         Double rating = reviewRepository.averageRatingByBookIdAndStatus(book.getId(), REVIEW_VISIBLE);
         boolean hasPdf = book.getPdfPath() != null && !book.getPdfPath().isBlank();
         boolean reservedByMe = userId != null
-                && loanRepository.existsByUserIdAndBookIdAndStatus(userId, book.getId(), LOAN_ACTIVE);
+                && loanRepository.existsByUserIdAndBookIdAndStatus(userId, book.getId(), LoanStatus.ACTIVE);
+        long totalCopies = bookCopyRepository.countByBookId(book.getId());
+        long availableCopies = bookCopyRepository.countByBookIdAndStatus(book.getId(), BookCopyStatus.AVAILABLE);
+        long waitingReservations = reservationRepository.countByBookIdAndStatus(book.getId(), ReservationStatus.WAITING);
 
         return BookResponse.builder()
                 .id(book.getId())
@@ -168,6 +232,9 @@ public class BookServiceImpl implements BookService {
                 .hasPdf(hasPdf)
                 .pdfUrl(hasPdf ? "/api/books/" + book.getId() + "/pdf" : null)
                 .reservedByMe(reservedByMe)
+                .totalCopies(totalCopies)
+                .availableCopies(availableCopies)
+                .waitingReservations(waitingReservations)
                 .createdAt(book.getCreatedAt())
                 .build();
     }
