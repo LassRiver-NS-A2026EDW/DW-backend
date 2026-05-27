@@ -26,5 +26,8 @@ public class BookResponse {
     private Boolean hasPdf;
     private String pdfUrl;
     private Boolean reservedByMe;
+    private Long totalCopies;
+    private Long availableCopies;
+    private Long waitingReservations;
     private LocalDateTime createdAt;
 }

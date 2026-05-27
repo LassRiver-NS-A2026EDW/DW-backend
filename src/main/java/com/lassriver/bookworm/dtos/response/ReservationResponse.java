@@ -7,21 +7,17 @@ import java.time.LocalDateTime;
 
 @Data
 @Builder
-public class LoanResponse {
+public class ReservationResponse {
     private Long id;
     private Long userId;
     private String userEmail;
     private Long bookId;
     private String bookTitle;
-    private String bookIsbn;
-    private Long copyId;
-    private String copyCode;
-    private LocalDateTime loanDate;
-    private LocalDateTime dueDate;
-    private LocalDateTime returnedAt;
     private String status;
-    private Integer renewalCount;
-    private Boolean canRenew;
-    private String blockedReason;
+    private Integer requestedLoanDurationMinutes;
+    private Integer queuePosition;
+    private Long fulfilledLoanId;
     private LocalDateTime createdAt;
+    private LocalDateTime fulfilledAt;
+    private LocalDateTime cancelledAt;
 }

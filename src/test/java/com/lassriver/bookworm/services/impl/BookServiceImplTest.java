@@ -4,8 +4,12 @@ import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
+import com.lassriver.bookworm.repositories.BookCopyRepository;
 import com.lassriver.bookworm.repositories.BookRepository;
+import com.lassriver.bookworm.repositories.LoanRepository;
+import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
+import com.lassriver.bookworm.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,6 +36,18 @@ class BookServiceImplTest {
 
     @Mock
     private ReviewRepository reviewRepository;
+
+    @Mock
+    private LoanRepository loanRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private BookCopyRepository bookCopyRepository;
+
+    @Mock
+    private ReservationRepository reservationRepository;
 
     @InjectMocks
     private BookServiceImpl bookService;

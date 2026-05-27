@@ -1,10 +1,14 @@
 package com.lassriver.bookworm.config;
 
 import com.lassriver.bookworm.entities.Book;
+import com.lassriver.bookworm.entities.BookCopy;
 import com.lassriver.bookworm.entities.Loan;
 import com.lassriver.bookworm.entities.Review;
 import com.lassriver.bookworm.entities.User;
+import com.lassriver.bookworm.entities.enums.BookCopyStatus;
 import com.lassriver.bookworm.entities.enums.Gender;
+import com.lassriver.bookworm.entities.enums.LoanStatus;
+import com.lassriver.bookworm.repositories.BookCopyRepository;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
@@ -35,6 +39,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
     private final LoanRepository loanRepository;
+    private final BookCopyRepository bookCopyRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -63,6 +68,7 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
             book.setCoverUrl(seed.coverUrl());
             book.setStatus(seed.available() ? "ACTIVE" : "INACTIVE");
             book = bookRepository.save(book);
+            ensureSeedCopy(book);
             seeded.put(seed.key(), book);
         }
         return seeded;
@@ -96,12 +102,38 @@ public class DevelopmentDataSeeder implements CommandLineRunner {
             loanRepository.save(Loan.builder()
                     .user(user)
                     .book(book)
+                    .copy(copyForSeedLoan(book, seed.status()))
                     .loanDate(seed.loanDate().atStartOfDay())
+                    .dueDate(seed.loanDate().atStartOfDay().plusDays(7))
                     .returnedAt(seed.returnDate() == null ? null : seed.returnDate().atStartOfDay())
-                    .status(seed.status())
+                    .status(LoanStatus.valueOf(seed.status()))
+                    .renewalCount(0)
                     .createdAt(seed.loanDate().atStartOfDay())
                     .build());
         }
+    }
+
+    private void ensureSeedCopy(Book book) {
+        if (bookCopyRepository.countByBookId(book.getId()) > 0) {
+            return;
+        }
+        bookCopyRepository.save(BookCopy.builder()
+                .book(book)
+                .copyCode("BOOK-" + book.getId() + "-COPY-1")
+                .status("ACTIVE".equalsIgnoreCase(book.getStatus()) ? BookCopyStatus.AVAILABLE : BookCopyStatus.INACTIVE)
+                .build());
+    }
+
+    private BookCopy copyForSeedLoan(Book book, String loanStatus) {
+        BookCopy copy = bookCopyRepository.findAllByBookIdOrderByIdAsc(book.getId()).stream()
+                .findFirst()
+                .orElseGet(() -> bookCopyRepository.save(BookCopy.builder()
+                        .book(book)
+                        .copyCode("BOOK-" + book.getId() + "-COPY-1")
+                        .status(BookCopyStatus.AVAILABLE)
+                        .build()));
+        copy.setStatus("RETURNED".equalsIgnoreCase(loanStatus) ? BookCopyStatus.AVAILABLE : BookCopyStatus.LOANED);
+        return copy;
     }
 
     private void seedReviews(Map<String, Book> books, Map<String, User> users) {

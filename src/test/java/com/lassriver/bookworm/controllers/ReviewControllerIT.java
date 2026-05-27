@@ -7,6 +7,7 @@ import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.entities.Loan;
 import com.lassriver.bookworm.entities.Review;
 import com.lassriver.bookworm.entities.User;
+import com.lassriver.bookworm.entities.enums.LoanStatus;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
@@ -100,7 +101,7 @@ class ReviewControllerIT extends BaseSecurityIntegrationTest {
     @Test
     @DisplayName("POST /api/reviews - crea reseña válida")
     void createReview_WithValidData_Returns201() throws Exception {
-        loanRepository.save(Loan.builder().user(user).book(book).status("RETURNED").build());
+        loanRepository.save(Loan.builder().user(user).book(book).status(LoanStatus.RETURNED).build());
 
         ReviewCreateRequest request = new ReviewCreateRequest();
         request.setBookId(book.getId());
@@ -119,7 +120,7 @@ class ReviewControllerIT extends BaseSecurityIntegrationTest {
     @Test
     @DisplayName("POST /api/reviews - 400 si intenta duplicar reseña")
     void createReview_WhenDuplicated_Returns400() throws Exception {
-        loanRepository.save(Loan.builder().user(user).book(book).status("RETURNED").build());
+        loanRepository.save(Loan.builder().user(user).book(book).status(LoanStatus.RETURNED).build());
         reviewRepository.save(Review.builder().user(user).book(book).rating(5).comment("x").status("VISIBLE").build());
 
         ReviewCreateRequest request = new ReviewCreateRequest();
@@ -168,7 +169,7 @@ class ReviewControllerIT extends BaseSecurityIntegrationTest {
     @Test
     @DisplayName("POST /api/reviews - 400 por body inválido")
     void createReview_WithInvalidBody_Returns400() throws Exception {
-        loanRepository.save(Loan.builder().user(user).book(book).status("RETURNED").build());
+        loanRepository.save(Loan.builder().user(user).book(book).status(LoanStatus.RETURNED).build());
 
         ReviewCreateRequest request = new ReviewCreateRequest();
         request.setBookId(book.getId());
