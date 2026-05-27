@@ -5,6 +5,7 @@ import com.lassriver.bookworm.dtos.request.ChatMessageRequest;
 import com.lassriver.bookworm.dtos.request.ChatRequest;
 import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.entities.User;
+import com.lassriver.bookworm.entities.enums.LoanStatus;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
@@ -25,7 +26,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
-    private static final String LOAN_ACTIVE = "ACTIVE";
     private static final long SSE_TIMEOUT_MS = 90_000L;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -67,7 +67,7 @@ public class ChatServiceImpl implements ChatService {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + bookId));
         boolean canUseChat = isPrivileged(user)
-                || loanRepository.existsByUserIdAndBookIdAndStatus(user.getId(), book.getId(), LOAN_ACTIVE);
+                || loanRepository.existsByUserIdAndBookIdAndStatus(user.getId(), book.getId(), LoanStatus.ACTIVE);
         if (!canUseChat) {
             throw new AccessDeniedException("Debes tener un prestamo activo para usar el chat de este libro.");
         }
