@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lassriver.bookworm.BaseSecurityIntegrationTest;
 import com.lassriver.bookworm.dtos.request.LoanCreateRequest;
 import com.lassriver.bookworm.entities.Book;
+import com.lassriver.bookworm.entities.BookCopy;
 import com.lassriver.bookworm.entities.Loan;
 import com.lassriver.bookworm.entities.User;
+import com.lassriver.bookworm.entities.enums.BookCopyStatus;
+import com.lassriver.bookworm.entities.enums.LoanStatus;
+import com.lassriver.bookworm.repositories.BookCopyRepository;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
@@ -37,6 +41,9 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     private LoanRepository loanRepository;
 
     @Autowired
+    private BookCopyRepository bookCopyRepository;
+
+    @Autowired
     private BookRepository bookRepository;
 
     @Autowired
@@ -55,10 +62,12 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     private User otherUser;
     private Book activeBook;
     private Book inactiveBook;
+    private BookCopy activeCopy;
 
     @BeforeEach
     void setUp() {
         loanRepository.deleteAll();
+        bookCopyRepository.deleteAll();
         bookRepository.deleteAll();
         userRepository.deleteAll();
 
@@ -87,12 +96,22 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
                 .isbn("ISBN-ACTIVE")
                 .status("ACTIVE")
                 .build());
+        activeCopy = bookCopyRepository.save(BookCopy.builder()
+                .book(activeBook)
+                .copyCode("BOOK-" + activeBook.getId() + "-COPY-1")
+                .status(BookCopyStatus.AVAILABLE)
+                .build());
 
         inactiveBook = bookRepository.save(Book.builder()
                 .title("Inactive Book")
                 .author("Any")
                 .isbn("ISBN-INACTIVE")
                 .status("INACTIVE")
+                .build());
+        bookCopyRepository.save(BookCopy.builder()
+                .book(inactiveBook)
+                .copyCode("BOOK-" + inactiveBook.getId() + "-COPY-1")
+                .status(BookCopyStatus.INACTIVE)
                 .build());
     }
 
@@ -101,6 +120,7 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     void createLoan_WithValidRequest_Returns201() throws Exception {
         LoanCreateRequest request = new LoanCreateRequest();
         request.setBookId(activeBook.getId());
+        request.setDurationMinutes(60);
 
         mockMvc.perform(post("/api/loans")
                         .header("Authorization", "Bearer " + userToken)
@@ -118,6 +138,7 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     void createLoan_WithoutToken_Returns401() throws Exception {
         LoanCreateRequest request = new LoanCreateRequest();
         request.setBookId(activeBook.getId());
+        request.setDurationMinutes(60);
 
         mockMvc.perform(post("/api/loans")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -130,6 +151,7 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     void createLoan_WhenBookInactive_Returns400() throws Exception {
         LoanCreateRequest request = new LoanCreateRequest();
         request.setBookId(inactiveBook.getId());
+        request.setDurationMinutes(60);
 
         mockMvc.perform(post("/api/loans")
                         .header("Authorization", "Bearer " + userToken)
@@ -142,10 +164,13 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     @Test
     @DisplayName("POST /api/loans - 400 cuando no hay disponibilidad")
     void createLoan_WhenBookAlreadyLoaned_Returns400() throws Exception {
-        loanRepository.save(Loan.builder().user(user).book(activeBook).status("ACTIVE").build());
+        activeCopy.setStatus(BookCopyStatus.LOANED);
+        bookCopyRepository.save(activeCopy);
+        loanRepository.save(Loan.builder().user(user).book(activeBook).copy(activeCopy).status(LoanStatus.ACTIVE).build());
 
         LoanCreateRequest request = new LoanCreateRequest();
         request.setBookId(activeBook.getId());
+        request.setDurationMinutes(60);
 
         mockMvc.perform(post("/api/loans")
                         .header("Authorization", "Bearer " + otherUserToken)
@@ -162,12 +187,13 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
         Book book3 = bookRepository.save(Book.builder().title("B3").author("A3").isbn("ISBN-3").status("ACTIVE").build());
         Book book4 = bookRepository.save(Book.builder().title("B4").author("A4").isbn("ISBN-4").status("ACTIVE").build());
 
-        loanRepository.save(Loan.builder().user(user).book(activeBook).status("ACTIVE").build());
-        loanRepository.save(Loan.builder().user(user).book(book2).status("ACTIVE").build());
-        loanRepository.save(Loan.builder().user(user).book(book3).status("ACTIVE").build());
+        loanRepository.save(Loan.builder().user(user).book(activeBook).status(LoanStatus.ACTIVE).build());
+        loanRepository.save(Loan.builder().user(user).book(book2).status(LoanStatus.ACTIVE).build());
+        loanRepository.save(Loan.builder().user(user).book(book3).status(LoanStatus.ACTIVE).build());
 
         LoanCreateRequest request = new LoanCreateRequest();
         request.setBookId(book4.getId());
+        request.setDurationMinutes(60);
 
         mockMvc.perform(post("/api/loans")
                         .header("Authorization", "Bearer " + userToken)
@@ -180,7 +206,7 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     @Test
     @DisplayName("PUT /api/loans/{id}/return - devuelve préstamo propio")
     void returnLoan_WhenOwnedByUser_Returns200() throws Exception {
-        Loan loan = loanRepository.save(Loan.builder().user(user).book(activeBook).status("ACTIVE").build());
+        Loan loan = loanRepository.save(Loan.builder().user(user).book(activeBook).copy(activeCopy).status(LoanStatus.ACTIVE).build());
 
         mockMvc.perform(put("/api/loans/{id}/return", loan.getId())
                         .header("Authorization", "Bearer " + userToken))
@@ -192,7 +218,7 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     @Test
     @DisplayName("PUT /api/loans/{id}/return - 403 si préstamo pertenece a otro usuario")
     void returnLoan_WhenLoanBelongsToOtherUser_Returns403() throws Exception {
-        Loan loan = loanRepository.save(Loan.builder().user(otherUser).book(activeBook).status("ACTIVE").build());
+        Loan loan = loanRepository.save(Loan.builder().user(otherUser).book(activeBook).status(LoanStatus.ACTIVE).build());
 
         mockMvc.perform(put("/api/loans/{id}/return", loan.getId())
                         .header("Authorization", "Bearer " + userToken))
@@ -212,8 +238,8 @@ class LoanControllerIT extends BaseSecurityIntegrationTest {
     @Test
     @DisplayName("GET /api/loans/my-loans - lista préstamos del usuario autenticado")
     void getMyLoans_ReturnsOnlyAuthenticatedUserLoans() throws Exception {
-        loanRepository.save(Loan.builder().user(user).book(activeBook).status("ACTIVE").build());
-        loanRepository.save(Loan.builder().user(otherUser).book(activeBook).status("RETURNED").build());
+        loanRepository.save(Loan.builder().user(user).book(activeBook).status(LoanStatus.ACTIVE).build());
+        loanRepository.save(Loan.builder().user(otherUser).book(activeBook).status(LoanStatus.RETURNED).build());
 
         mockMvc.perform(get("/api/loans/my-loans")
                         .header("Authorization", "Bearer " + userToken))
