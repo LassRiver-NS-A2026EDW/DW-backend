@@ -16,6 +16,7 @@ import com.lassriver.bookworm.repositories.LoanRenewalRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
+import com.lassriver.bookworm.services.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -52,6 +53,9 @@ class LoanServiceImplTest {
     @Mock
     private LoanRenewalRepository loanRenewalRepository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private LoanServiceImpl loanService;
 
@@ -87,6 +91,7 @@ class LoanServiceImplTest {
         assertEquals(100L, response.getId());
         assertEquals("ACTIVE", response.getStatus());
         assertEquals(10L, response.getBookId());
+        verify(notificationService).notifyLoanCreated(savedLoan);
     }
 
     @Test

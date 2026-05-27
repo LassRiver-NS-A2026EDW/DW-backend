@@ -15,6 +15,7 @@ import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
+import com.lassriver.bookworm.services.NotificationService;
 import com.lassriver.bookworm.services.ReservationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -37,6 +38,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final BookRepository bookRepository;
     private final BookCopyRepository bookCopyRepository;
     private final LoanRepository loanRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -66,7 +68,9 @@ public class ReservationServiceImpl implements ReservationService {
                 .requestedLoanDurationMinutes(request.getRequestedLoanDurationMinutes())
                 .build();
 
-        return toResponse(reservationRepository.save(reservation));
+        Reservation savedReservation = reservationRepository.save(reservation);
+        notificationService.notifyReservationCreated(savedReservation);
+        return toResponse(savedReservation);
     }
 
     @Override
@@ -82,7 +86,9 @@ public class ReservationServiceImpl implements ReservationService {
 
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setCancelledAt(LocalDateTime.now());
-        return toResponse(reservationRepository.save(reservation));
+        Reservation savedReservation = reservationRepository.save(reservation);
+        notificationService.notifyReservationCancelled(savedReservation);
+        return toResponse(savedReservation);
     }
 
     @Override

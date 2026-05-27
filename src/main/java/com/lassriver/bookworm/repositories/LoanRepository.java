@@ -25,6 +25,15 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
     List<Loan> findAllByUserIdOrderByLoanDateDesc(Long userId);
 
+    List<Loan> findAllByStatusInAndDueDateBetween(
+            Collection<LoanStatus> statuses,
+            java.time.LocalDateTime start,
+            java.time.LocalDateTime end);
+
+    List<Loan> findAllByStatusInAndDueDateBefore(
+            Collection<LoanStatus> statuses,
+            java.time.LocalDateTime dateTime);
+
     boolean existsByUserIdAndBookId(Long userId, Long bookId);
 
     boolean existsByUserIdAndBookIdAndStatus(Long userId, Long bookId, LoanStatus status);
