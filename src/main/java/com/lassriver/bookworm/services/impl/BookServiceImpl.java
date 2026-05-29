@@ -14,8 +14,10 @@ import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookCopyRepository;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
+import com.lassriver.bookworm.repositories.LoanRenewalRepository;
 import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
+import com.lassriver.bookworm.repositories.UserFavoriteRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
 import com.lassriver.bookworm.services.BookService;
 import jakarta.persistence.criteria.Predicate;
@@ -42,9 +44,12 @@ public class BookServiceImpl implements BookService {
     private final UserRepository userRepository;
     private final BookCopyRepository bookCopyRepository;
     private final ReservationRepository reservationRepository;
+    private final LoanRenewalRepository loanRenewalRepository;
+    private final UserFavoriteRepository userFavoriteRepository;
 
     private static final String REVIEW_VISIBLE = "VISIBLE";
     private static final int LOAN_COOLDOWN_HOURS = 24;
+    private static final List<LoanStatus> BLOCKING_LOAN_STATUSES = List.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
     private static final List<BookCopyStatus> COUNTED_COPY_STATUSES = List.of(
             BookCopyStatus.AVAILABLE,
             BookCopyStatus.LOANED,
@@ -173,6 +178,29 @@ public class BookServiceImpl implements BookService {
             ensureInitialCopy(updatedBook);
         }
         return toResponse(updatedBook);
+    }
+
+    @Override
+    @Transactional
+    public void deleteBook(Long id) {
+        Book book = bookRepository.findLockedById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + id));
+
+        if (loanRepository.existsByBookIdAndStatusIn(book.getId(), BLOCKING_LOAN_STATUSES)) {
+            throw new BusinessRuleException("No se puede eliminar un libro con prestamos activos o vencidos.");
+        }
+
+        if (reservationRepository.existsByBookIdAndStatus(book.getId(), ReservationStatus.WAITING)) {
+            throw new BusinessRuleException("No se puede eliminar un libro con usuarios en cola de reserva.");
+        }
+
+        reservationRepository.deleteAllByBookId(book.getId());
+        loanRenewalRepository.deleteAllByBookId(book.getId());
+        loanRepository.deleteAllByBookId(book.getId());
+        reviewRepository.deleteAllByBookId(book.getId());
+        userFavoriteRepository.deleteAllByBookId(book.getId());
+        bookCopyRepository.deleteAllByBookId(book.getId());
+        bookRepository.delete(book);
     }
 
     private void ensureInitialCopy(Book book) {
