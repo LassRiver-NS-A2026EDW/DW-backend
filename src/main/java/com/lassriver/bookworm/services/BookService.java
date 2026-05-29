@@ -22,4 +22,6 @@ public interface BookService {
     BookResponse updateBook(Long id, BookUpsertRequest request);
 
     BookResponse updateBookStatus(Long id, String status);
+
+    void deleteBook(Long id);
 }

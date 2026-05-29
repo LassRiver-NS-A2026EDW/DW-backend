@@ -3,12 +3,16 @@ package com.lassriver.bookworm.services.impl;
 import com.lassriver.bookworm.dtos.request.BookUpsertRequest;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.entities.Book;
+import com.lassriver.bookworm.entities.enums.ReservationStatus;
+import com.lassriver.bookworm.exceptions.BusinessRuleException;
 import com.lassriver.bookworm.exceptions.ResourceNotFoundException;
 import com.lassriver.bookworm.repositories.BookCopyRepository;
 import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
+import com.lassriver.bookworm.repositories.LoanRenewalRepository;
 import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.ReviewRepository;
+import com.lassriver.bookworm.repositories.UserFavoriteRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +52,12 @@ class BookServiceImplTest {
 
     @Mock
     private ReservationRepository reservationRepository;
+
+    @Mock
+    private LoanRenewalRepository loanRenewalRepository;
+
+    @Mock
+    private UserFavoriteRepository userFavoriteRepository;
 
     @InjectMocks
     private BookServiceImpl bookService;
@@ -112,5 +122,51 @@ class BookServiceImplTest {
 
         assertEquals("INACTIVE", response.getStatus());
         verify(bookRepository, times(1)).save(book);
+    }
+
+    @Test
+    void deleteBook_WhenNoActiveLoansOrWaitingReservations_DeletesDependenciesAndBook() {
+        Book book = Book.builder().id(7L).title("Book").build();
+
+        when(bookRepository.findLockedById(7L)).thenReturn(Optional.of(book));
+        when(loanRepository.existsByBookIdAndStatusIn(eq(7L), anyCollection())).thenReturn(false);
+        when(reservationRepository.existsByBookIdAndStatus(7L, ReservationStatus.WAITING)).thenReturn(false);
+
+        bookService.deleteBook(7L);
+
+        verify(reservationRepository).deleteAllByBookId(7L);
+        verify(loanRenewalRepository).deleteAllByBookId(7L);
+        verify(loanRepository).deleteAllByBookId(7L);
+        verify(reviewRepository).deleteAllByBookId(7L);
+        verify(userFavoriteRepository).deleteAllByBookId(7L);
+        verify(bookCopyRepository).deleteAllByBookId(7L);
+        verify(bookRepository).delete(book);
+    }
+
+    @Test
+    void deleteBook_WhenActiveLoanExists_ThrowsBusinessRuleException() {
+        Book book = Book.builder().id(7L).title("Book").build();
+
+        when(bookRepository.findLockedById(7L)).thenReturn(Optional.of(book));
+        when(loanRepository.existsByBookIdAndStatusIn(eq(7L), anyCollection())).thenReturn(true);
+
+        assertThrows(BusinessRuleException.class, () -> bookService.deleteBook(7L));
+
+        verify(reservationRepository, never()).existsByBookIdAndStatus(anyLong(), any(ReservationStatus.class));
+        verify(bookRepository, never()).delete(any(Book.class));
+    }
+
+    @Test
+    void deleteBook_WhenWaitingReservationExists_ThrowsBusinessRuleException() {
+        Book book = Book.builder().id(7L).title("Book").build();
+
+        when(bookRepository.findLockedById(7L)).thenReturn(Optional.of(book));
+        when(loanRepository.existsByBookIdAndStatusIn(eq(7L), anyCollection())).thenReturn(false);
+        when(reservationRepository.existsByBookIdAndStatus(7L, ReservationStatus.WAITING)).thenReturn(true);
+
+        assertThrows(BusinessRuleException.class, () -> bookService.deleteBook(7L));
+
+        verify(loanRepository, never()).deleteAllByBookId(anyLong());
+        verify(bookRepository, never()).delete(any(Book.class));
     }
 }
