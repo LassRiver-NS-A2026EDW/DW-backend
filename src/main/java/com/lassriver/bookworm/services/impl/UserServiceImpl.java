@@ -23,10 +23,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserServiceImpl implements UserService {
+
+    private static final int MINIMUM_REGISTRATION_AGE_YEARS = 13;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -35,6 +39,8 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserRegistrationResponse registerUser(UserRegistrationRequest request) {
+        validateMinimumRegistrationAge(request.getBirthDate());
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException("El correo electrónico ya está registrado.");
         }
@@ -121,6 +127,19 @@ public class UserServiceImpl implements UserService {
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado para el token actual."));
+    }
+
+    private void validateMinimumRegistrationAge(LocalDate birthDate) {
+        if (birthDate == null) {
+            return;
+        }
+
+        LocalDate latestAllowedBirthDate = LocalDate.now().minusYears(MINIMUM_REGISTRATION_AGE_YEARS);
+        if (birthDate.isAfter(latestAllowedBirthDate)) {
+            throw new BusinessRuleException(
+                    "La fecha de nacimiento debe corresponder a una edad minima de "
+                            + MINIMUM_REGISTRATION_AGE_YEARS + " anos.");
+        }
     }
 
     private UserProfileResponse toProfileResponse(User user) {
