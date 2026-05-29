@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -119,5 +120,21 @@ class ReviewServiceImplTest {
         ReviewResponse response = reviewService.hideReview(99L);
 
         assertEquals("HIDDEN", response.getStatus());
+    }
+
+    @Test
+    void getReviews_WhenStatusAll_ReturnsVisibleAndHiddenReviews() {
+        User user = User.builder().id(1L).email("user@bookworm.com").build();
+        Book book = Book.builder().id(10L).title("Book").build();
+        Review visible = Review.builder().id(1L).user(user).book(book).rating(5).comment("x").status("VISIBLE").build();
+        Review hidden = Review.builder().id(2L).user(user).book(book).rating(3).comment("y").status("HIDDEN").build();
+
+        when(reviewRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(hidden, visible));
+
+        List<ReviewResponse> response = reviewService.getReviews("ALL");
+
+        assertEquals(2, response.size());
+        assertEquals("HIDDEN", response.getFirst().getStatus());
+        verify(reviewRepository, never()).findAllByStatusOrderByCreatedAtDesc(any());
     }
 }

@@ -16,6 +16,7 @@ import com.lassriver.bookworm.repositories.LoanRenewalRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
+import com.lassriver.bookworm.services.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -52,6 +53,9 @@ class LoanServiceImplTest {
     @Mock
     private LoanRenewalRepository loanRenewalRepository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private LoanServiceImpl loanService;
 
@@ -87,6 +91,7 @@ class LoanServiceImplTest {
         assertEquals(100L, response.getId());
         assertEquals("ACTIVE", response.getStatus());
         assertEquals(10L, response.getBookId());
+        verify(notificationService).notifyLoanCreated(savedLoan);
     }
 
     @Test
@@ -116,6 +121,32 @@ class LoanServiceImplTest {
         when(bookRepository.findLockedById(10L)).thenReturn(Optional.of(book));
         when(loanRepository.existsByUserIdAndBookIdAndStatusIn(eq(1L), eq(10L), any())).thenReturn(false);
         when(loanRepository.countByUserIdAndStatusIn(eq(1L), any())).thenReturn(3L);
+
+        assertThrows(BusinessRuleException.class, () -> loanService.createLoan(request, "user@bookworm.com"));
+        verify(loanRepository, never()).save(any(Loan.class));
+    }
+
+    @Test
+    void createLoan_WhenBookWasRecentlyReturned_ThrowsBusinessRuleException() {
+        User user = User.builder().id(1L).email("user@bookworm.com").build();
+        Book book = Book.builder().id(10L).status("ACTIVE").build();
+        Loan returnedLoan = Loan.builder()
+                .id(77L)
+                .user(user)
+                .book(book)
+                .status(LoanStatus.RETURNED)
+                .returnedAt(LocalDateTime.now().minusHours(2))
+                .build();
+        LoanCreateRequest request = new LoanCreateRequest();
+        request.setBookId(10L);
+        request.setDurationMinutes(60);
+
+        when(userRepository.findByEmail("user@bookworm.com")).thenReturn(Optional.of(user));
+        when(bookRepository.findLockedById(10L)).thenReturn(Optional.of(book));
+        when(loanRepository.existsByUserIdAndBookIdAndStatusIn(eq(1L), eq(10L), any())).thenReturn(false);
+        when(loanRepository.findFirstByUserIdAndBookIdAndStatusAndReturnedAtAfterOrderByReturnedAtDesc(
+                eq(1L), eq(10L), eq(LoanStatus.RETURNED), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(returnedLoan));
 
         assertThrows(BusinessRuleException.class, () -> loanService.createLoan(request, "user@bookworm.com"));
         verify(loanRepository, never()).save(any(Loan.class));

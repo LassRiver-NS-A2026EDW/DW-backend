@@ -10,5 +10,7 @@ public interface BookCopyService {
 
     BookCopyResponse createCopy(Long bookId);
 
+    BookCopyResponse retireCopy(Long bookId, Long copyId);
+
     List<BookCopyResponse> getCopies(Long bookId);
 }

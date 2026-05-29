@@ -73,7 +73,11 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional(readOnly = true)
     public List<ReviewResponse> getReviews(String status) {
         String effectiveStatus = status == null || status.isBlank() ? REVIEW_VISIBLE : status.toUpperCase();
-        return reviewRepository.findAllByStatusOrderByCreatedAtDesc(effectiveStatus)
+        List<Review> reviews = "ALL".equals(effectiveStatus)
+                ? reviewRepository.findAllByOrderByCreatedAtDesc()
+                : reviewRepository.findAllByStatusOrderByCreatedAtDesc(effectiveStatus);
+
+        return reviews
                 .stream()
                 .map(this::toResponse)
                 .toList();

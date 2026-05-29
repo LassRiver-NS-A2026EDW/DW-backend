@@ -15,6 +15,7 @@ import com.lassriver.bookworm.repositories.BookRepository;
 import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
+import com.lassriver.bookworm.services.NotificationService;
 import com.lassriver.bookworm.services.ReservationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,6 +31,7 @@ public class ReservationServiceImpl implements ReservationService {
 
     private static final int MIN_LOAN_DURATION_MINUTES = 5;
     private static final int MAX_LOAN_DURATION_MINUTES = 10_080;
+    private static final int LOAN_COOLDOWN_HOURS = 24;
     private static final List<LoanStatus> OPEN_LOAN_STATUSES = List.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
 
     private final ReservationRepository reservationRepository;
@@ -37,6 +39,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final BookRepository bookRepository;
     private final BookCopyRepository bookCopyRepository;
     private final LoanRepository loanRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -55,6 +58,9 @@ public class ReservationServiceImpl implements ReservationService {
         if (loanRepository.existsByUserIdAndBookIdAndStatusIn(user.getId(), book.getId(), OPEN_LOAN_STATUSES)) {
             throw new BusinessRuleException("Ya tienes un prestamo activo para este libro.");
         }
+        if (isLoanCooldownActive(user, book)) {
+            throw new BusinessRuleException("Debes esperar 24 horas despues de devolver este libro para volver a reservarlo.");
+        }
         if (reservationRepository.existsByUserIdAndBookIdAndStatus(user.getId(), book.getId(), ReservationStatus.WAITING)) {
             throw new BusinessRuleException("Ya tienes una reserva en cola para este libro.");
         }
@@ -66,7 +72,9 @@ public class ReservationServiceImpl implements ReservationService {
                 .requestedLoanDurationMinutes(request.getRequestedLoanDurationMinutes())
                 .build();
 
-        return toResponse(reservationRepository.save(reservation));
+        Reservation savedReservation = reservationRepository.save(reservation);
+        notificationService.notifyReservationCreated(savedReservation);
+        return toResponse(savedReservation);
     }
 
     @Override
@@ -82,7 +90,9 @@ public class ReservationServiceImpl implements ReservationService {
 
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setCancelledAt(LocalDateTime.now());
-        return toResponse(reservationRepository.save(reservation));
+        Reservation savedReservation = reservationRepository.save(reservation);
+        notificationService.notifyReservationCancelled(savedReservation);
+        return toResponse(savedReservation);
     }
 
     @Override
@@ -110,6 +120,15 @@ public class ReservationServiceImpl implements ReservationService {
 
     private boolean isPrivileged(User user) {
         return "ADMIN".equalsIgnoreCase(user.getRole()) || "LIBRARIAN".equalsIgnoreCase(user.getRole());
+    }
+
+    private boolean isLoanCooldownActive(User user, Book book) {
+        LocalDateTime returnedAfter = LocalDateTime.now().minusHours(LOAN_COOLDOWN_HOURS);
+        return loanRepository.findFirstByUserIdAndBookIdAndStatusAndReturnedAtAfterOrderByReturnedAtDesc(
+                user.getId(),
+                book.getId(),
+                LoanStatus.RETURNED,
+                returnedAfter).isPresent();
     }
 
     private ReservationResponse toResponse(Reservation reservation) {

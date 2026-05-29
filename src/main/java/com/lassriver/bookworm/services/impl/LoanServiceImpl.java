@@ -22,6 +22,7 @@ import com.lassriver.bookworm.repositories.LoanRepository;
 import com.lassriver.bookworm.repositories.ReservationRepository;
 import com.lassriver.bookworm.repositories.UserRepository;
 import com.lassriver.bookworm.services.LoanService;
+import com.lassriver.bookworm.services.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class LoanServiceImpl implements LoanService {
 
     private static final int MIN_LOAN_DURATION_MINUTES = 5;
     private static final int MAX_LOAN_DURATION_MINUTES = 10_080;
+    private static final int LOAN_COOLDOWN_HOURS = 24;
     private static final int MAX_ACTIVE_LOANS_PER_USER = 3;
     private static final int MAX_RENEWALS_PER_LOAN = 2;
     private static final List<LoanStatus> OPEN_LOAN_STATUSES = List.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
@@ -47,6 +49,7 @@ public class LoanServiceImpl implements LoanService {
     private final BookCopyRepository bookCopyRepository;
     private final ReservationRepository reservationRepository;
     private final LoanRenewalRepository loanRenewalRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -71,7 +74,9 @@ public class LoanServiceImpl implements LoanService {
                 .renewalCount(0)
                 .build();
 
-        return toResponse(loanRepository.save(loan));
+        Loan savedLoan = loanRepository.save(loan);
+        notificationService.notifyLoanCreated(savedLoan);
+        return toResponse(savedLoan);
     }
 
     @Override
@@ -96,7 +101,9 @@ public class LoanServiceImpl implements LoanService {
         if (returnedCopy != null) {
             returnedCopy.setStatus(BookCopyStatus.AVAILABLE);
         }
-        LoanResponse response = toResponse(loanRepository.save(loan));
+        Loan savedLoan = loanRepository.save(loan);
+        notificationService.notifyLoanReturned(savedLoan);
+        LoanResponse response = toResponse(savedLoan);
 
         if (returnedCopy != null && "ACTIVE".equalsIgnoreCase(loan.getBook().getStatus())) {
             fulfillNextReservation(loan.getBook(), returnedCopy);
@@ -136,7 +143,9 @@ public class LoanServiceImpl implements LoanService {
                 .build();
         loanRenewalRepository.save(renewal);
 
-        return toResponse(loanRepository.save(loan));
+        Loan savedLoan = loanRepository.save(loan);
+        notificationService.notifyLoanRenewed(savedLoan);
+        return toResponse(savedLoan);
     }
 
     @Override
@@ -205,10 +214,23 @@ public class LoanServiceImpl implements LoanService {
             throw new BusinessRuleException("Ya tienes un prestamo activo para este libro.");
         }
 
+        if (isLoanCooldownActive(user, book)) {
+            throw new BusinessRuleException("Debes esperar 24 horas despues de devolver este libro para volver a reservarlo.");
+        }
+
         long openLoans = loanRepository.countByUserIdAndStatusIn(user.getId(), OPEN_LOAN_STATUSES);
         if (openLoans >= MAX_ACTIVE_LOANS_PER_USER) {
             throw new BusinessRuleException("Has alcanzado el limite de prestamos activos.");
         }
+    }
+
+    private boolean isLoanCooldownActive(User user, Book book) {
+        LocalDateTime returnedAfter = LocalDateTime.now().minusHours(LOAN_COOLDOWN_HOURS);
+        return loanRepository.findFirstByUserIdAndBookIdAndStatusAndReturnedAtAfterOrderByReturnedAtDesc(
+                user.getId(),
+                book.getId(),
+                LoanStatus.RETURNED,
+                returnedAfter).isPresent();
     }
 
     private BookCopy getAvailableCopy(Book book) {
@@ -253,7 +275,8 @@ public class LoanServiceImpl implements LoanService {
         reservation.setStatus(ReservationStatus.FULFILLED);
         reservation.setFulfilledAt(now);
         reservation.setFulfilledLoan(savedLoan);
-        reservationRepository.save(reservation);
+        Reservation fulfilledReservation = reservationRepository.save(reservation);
+        notificationService.notifyReservationFulfilled(fulfilledReservation);
     }
 
     private String getRenewalBlockedReason(Loan loan) {
