@@ -17,6 +17,8 @@ import java.util.Optional;
 public interface LoanRepository extends JpaRepository<Loan, Long> {
     boolean existsByBookIdAndStatus(Long bookId, LoanStatus status);
 
+    boolean existsByBookIdAndStatusIn(Long bookId, Collection<LoanStatus> statuses);
+
     long countByUserIdAndStatus(Long userId, LoanStatus status);
 
     long countByUserIdAndStatusIn(Long userId, Collection<LoanStatus> statuses);
@@ -45,6 +47,10 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     boolean existsByUserIdAndBookIdAndStatus(Long userId, Long bookId, LoanStatus status);
 
     boolean existsByUserIdAndBookIdAndStatusIn(Long userId, Long bookId, Collection<LoanStatus> statuses);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("delete from Loan l where l.book.id = :bookId")
+    int deleteAllByBookId(@Param("bookId") Long bookId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select l from Loan l where l.id = :id")

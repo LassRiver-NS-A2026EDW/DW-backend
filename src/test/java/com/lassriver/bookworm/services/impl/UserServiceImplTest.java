@@ -84,6 +84,23 @@ class UserServiceImplTest {
     }
 
     @Test
+    void registerUser_WhenBirthDateDoesNotMeetMinimumAge_ThrowsBusinessRuleException() {
+        UserRegistrationRequest request = new UserRegistrationRequest();
+        request.setName("Young User");
+        request.setEmail("young@test.com");
+        request.setPassword("password123");
+        request.setGender(Gender.F);
+        request.setBirthDate(LocalDate.now().minusYears(12));
+
+        BusinessRuleException exception = assertThrows(BusinessRuleException.class,
+                () -> userService.registerUser(request));
+
+        assertTrue(exception.getMessage().contains("edad minima"));
+        verify(userRepository, never()).existsByEmail(anyString());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
     void login_HappyPath_ReturnsLoginResponse() {
         LoginRequest request = new LoginRequest();
         request.setEmail("kevin@test.com");

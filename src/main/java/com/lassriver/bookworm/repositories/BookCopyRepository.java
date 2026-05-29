@@ -5,6 +5,9 @@ import com.lassriver.bookworm.entities.enums.BookCopyStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -27,4 +30,8 @@ public interface BookCopyRepository extends JpaRepository<BookCopy, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<BookCopy> findAllByBookIdAndStatusOrderByIdAsc(Long bookId, BookCopyStatus status);
+
+    @Modifying
+    @Query("delete from BookCopy c where c.book.id = :bookId")
+    int deleteAllByBookId(@Param("bookId") Long bookId);
 }

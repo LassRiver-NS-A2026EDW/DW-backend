@@ -54,6 +54,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/books").hasAnyAuthority("ADMIN", "LIBRARIAN")
                         .requestMatchers(HttpMethod.PUT, "/api/books/*").hasAnyAuthority("ADMIN", "LIBRARIAN")
                         .requestMatchers(HttpMethod.PATCH, "/api/books/*/status").hasAnyAuthority("ADMIN", "LIBRARIAN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/books/*").hasAnyAuthority("ADMIN", "LIBRARIAN")
                         .requestMatchers(HttpMethod.GET, "/api/books/*/copies").hasAnyAuthority("ADMIN", "LIBRARIAN")
                         .requestMatchers(HttpMethod.POST, "/api/books/*/copies").hasAnyAuthority("ADMIN", "LIBRARIAN")
                         .requestMatchers(HttpMethod.DELETE, "/api/books/*/copies/*").hasAnyAuthority("ADMIN", "LIBRARIAN")

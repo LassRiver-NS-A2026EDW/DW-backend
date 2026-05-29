@@ -5,6 +5,9 @@ import com.lassriver.bookworm.entities.enums.ReservationStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -28,4 +31,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Reservation> findByIdAndStatus(Long id, ReservationStatus status);
+
+    @Modifying
+    @Query("delete from Reservation r where r.book.id = :bookId")
+    int deleteAllByBookId(@Param("bookId") Long bookId);
 }
