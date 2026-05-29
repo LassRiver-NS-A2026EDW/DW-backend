@@ -1,8 +1,18 @@
 # BookWorm Backend
 
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.5-6DB33F?logo=springboot&logoColor=white)
+![Java](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+![Flyway](https://img.shields.io/badge/Flyway-Migrations-CC0200?logo=flyway&logoColor=white)
+![JWT](https://img.shields.io/badge/Security-JWT-000000?logo=jsonwebtokens&logoColor=white)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.x-6BA539?logo=openapiinitiative&logoColor=white)
+![Documentation](https://img.shields.io/badge/docs-ES%20%2F%20EN-8A2BE2)
+
 BookWorm Backend is the Spring Boot API for a transactional digital library platform. It manages authentication, books, copies, loans, reservations, reviews, favorites, notifications, PDF storage, and AI-assisted reading workflows.
 
 The backend is designed around strict business consistency. Borrowing, returning, reserving, renewing, moderating, and deleting resources are transactional operations that affect multiple tables and must remain correct under concurrent usage.
+
+The visual badges above are generated remotely by Shields.io, so this README stays polished without requiring screenshots or checked-in image assets.
 
 ## Table Of Contents
 
@@ -432,4 +442,3 @@ Recommended entry points:
 - [Architecture And Flow](docs/en/architecture_and_flow.md)
 - [Backend API](docs/en/backend_api.md)
 - [Frontend Architecture](docs/en/frontend_architecture.md)
-
