@@ -34,19 +34,37 @@ public class OpenAiCompatibleChatClient implements AiChatClient {
     private String model;
 
     @Override
-    public void stream(List<AiMessage> messages, Consumer<String> onChunk) {
-        if (apiKey == null || apiKey.isBlank()) {
-            onChunk.accept("El asistente IA no esta configurado. Define DEEPSEEK_API_KEY o bookworm.ai.api-key.");
+    public void stream(List<AiMessage> messages, String providerApiKey, Consumer<String> onChunk) {
+        String systemApiKey = blankToNull(apiKey);
+        String personalApiKey = blankToNull(providerApiKey);
+        if (systemApiKey == null && personalApiKey == null) {
+            throw new BusinessRuleException("El asistente IA no esta configurado. Agrega una clave personal de DeepSeek.");
+        }
+
+        if (systemApiKey == null) {
+            streamWithKey(messages, personalApiKey, onChunk);
             return;
         }
 
+        try {
+            streamWithKey(messages, systemApiKey, onChunk);
+        } catch (BusinessRuleException ex) {
+            if (personalApiKey != null && !personalApiKey.equals(systemApiKey)) {
+                streamWithKey(messages, personalApiKey, onChunk);
+                return;
+            }
+            throw ex;
+        }
+    }
+
+    private void streamWithKey(List<AiMessage> messages, String effectiveApiKey, Consumer<String> onChunk) {
         try {
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(15))
                     .build();
             HttpRequest request = HttpRequest.newBuilder(chatCompletionsUri())
                     .timeout(Duration.ofSeconds(90))
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Authorization", "Bearer " + effectiveApiKey)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(buildBody(messages))))
                     .build();
@@ -77,6 +95,10 @@ public class OpenAiCompatibleChatClient implements AiChatClient {
         } catch (Exception ex) {
             throw new BusinessRuleException("No se pudo contactar el proveedor IA.");
         }
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private URI chatCompletionsUri() {

@@ -4,5 +4,5 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public interface AiChatClient {
-    void stream(List<AiMessage> messages, Consumer<String> onChunk);
+    void stream(List<AiMessage> messages, String providerApiKey, Consumer<String> onChunk);
 }
