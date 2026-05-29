@@ -5,6 +5,7 @@ import com.lassriver.bookworm.dtos.response.BookFacetsResponse;
 import com.lassriver.bookworm.dtos.response.BookResponse;
 import com.lassriver.bookworm.entities.Book;
 import com.lassriver.bookworm.entities.BookCopy;
+import com.lassriver.bookworm.entities.Loan;
 import com.lassriver.bookworm.entities.enums.BookCopyStatus;
 import com.lassriver.bookworm.entities.enums.LoanStatus;
 import com.lassriver.bookworm.entities.enums.ReservationStatus;
@@ -27,6 +28,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,6 +44,11 @@ public class BookServiceImpl implements BookService {
     private final ReservationRepository reservationRepository;
 
     private static final String REVIEW_VISIBLE = "VISIBLE";
+    private static final int LOAN_COOLDOWN_HOURS = 24;
+    private static final List<BookCopyStatus> COUNTED_COPY_STATUSES = List.of(
+            BookCopyStatus.AVAILABLE,
+            BookCopyStatus.LOANED,
+            BookCopyStatus.RESERVED);
 
     @Override
     @Transactional(readOnly = true)
@@ -169,12 +176,14 @@ public class BookServiceImpl implements BookService {
     }
 
     private void ensureInitialCopy(Book book) {
-        if (!"ACTIVE".equalsIgnoreCase(book.getStatus()) || bookCopyRepository.countByBookId(book.getId()) > 0) {
+        if (!"ACTIVE".equalsIgnoreCase(book.getStatus())
+                || bookCopyRepository.countByBookIdAndStatusIn(book.getId(), COUNTED_COPY_STATUSES) > 0) {
             return;
         }
+        long nextCopyNumber = bookCopyRepository.countByBookId(book.getId()) + 1;
         bookCopyRepository.save(BookCopy.builder()
                 .book(book)
-                .copyCode("BOOK-" + book.getId() + "-COPY-1")
+                .copyCode("BOOK-" + book.getId() + "-COPY-" + nextCopyNumber)
                 .status(BookCopyStatus.AVAILABLE)
                 .build());
     }
@@ -210,7 +219,8 @@ public class BookServiceImpl implements BookService {
         boolean hasPdf = book.getPdfPath() != null && !book.getPdfPath().isBlank();
         boolean reservedByMe = userId != null
                 && loanRepository.existsByUserIdAndBookIdAndStatus(userId, book.getId(), LoanStatus.ACTIVE);
-        long totalCopies = bookCopyRepository.countByBookId(book.getId());
+        LocalDateTime loanCooldownUntil = getLoanCooldownUntil(userId, book.getId());
+        long totalCopies = bookCopyRepository.countByBookIdAndStatusIn(book.getId(), COUNTED_COPY_STATUSES);
         long availableCopies = bookCopyRepository.countByBookIdAndStatus(book.getId(), BookCopyStatus.AVAILABLE);
         long waitingReservations = reservationRepository.countByBookIdAndStatus(book.getId(), ReservationStatus.WAITING);
 
@@ -232,11 +242,28 @@ public class BookServiceImpl implements BookService {
                 .hasPdf(hasPdf)
                 .pdfUrl(hasPdf ? "/api/books/" + book.getId() + "/pdf" : null)
                 .reservedByMe(reservedByMe)
+                .loanCooldownUntil(loanCooldownUntil)
                 .totalCopies(totalCopies)
                 .availableCopies(availableCopies)
                 .waitingReservations(waitingReservations)
                 .createdAt(book.getCreatedAt())
                 .build();
+    }
+
+    private LocalDateTime getLoanCooldownUntil(Long userId, Long bookId) {
+        if (userId == null) {
+            return null;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        return loanRepository.findFirstByUserIdAndBookIdAndStatusAndReturnedAtAfterOrderByReturnedAtDesc(
+                        userId,
+                        bookId,
+                        LoanStatus.RETURNED,
+                        now.minusHours(LOAN_COOLDOWN_HOURS))
+                .map(Loan::getReturnedAt)
+                .map(returnedAt -> returnedAt.plusHours(LOAN_COOLDOWN_HOURS))
+                .filter(cooldownUntil -> cooldownUntil.isAfter(now))
+                .orElse(null);
     }
 
     private Long resolveUserId(String authenticatedEmail) {

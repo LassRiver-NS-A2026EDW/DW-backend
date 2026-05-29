@@ -22,6 +22,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BookCopyServiceImpl implements BookCopyService {
 
+    private static final List<BookCopyStatus> COUNTED_COPY_STATUSES = List.of(
+            BookCopyStatus.AVAILABLE,
+            BookCopyStatus.LOANED,
+            BookCopyStatus.RESERVED);
+
     private final BookRepository bookRepository;
     private final BookCopyRepository bookCopyRepository;
     private final ReservationRepository reservationRepository;
@@ -55,6 +60,31 @@ public class BookCopyServiceImpl implements BookCopyService {
     }
 
     @Override
+    @Transactional
+    public BookCopyResponse retireCopy(Long bookId, Long copyId) {
+        bookRepository.findLockedById(bookId)
+                .orElseThrow(() -> new ResourceNotFoundException("Libro no encontrado con id: " + bookId));
+
+        BookCopy copy = bookCopyRepository.findByIdAndBookId(copyId, bookId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ejemplar no encontrado con id: " + copyId));
+
+        if (reservationRepository.existsByBookIdAndStatus(bookId, ReservationStatus.WAITING)) {
+            throw new BusinessRuleException("No se pueden retirar ejemplares mientras existan reservas en cola.");
+        }
+
+        if (!BookCopyStatus.AVAILABLE.equals(copy.getStatus())) {
+            throw new BusinessRuleException("Solo se pueden retirar ejemplares disponibles.");
+        }
+
+        if (bookCopyRepository.countByBookIdAndStatusIn(bookId, COUNTED_COPY_STATUSES) <= 1) {
+            throw new BusinessRuleException("No se puede retirar el ultimo ejemplar del libro.");
+        }
+
+        copy.setStatus(BookCopyStatus.INACTIVE);
+        return toResponse(bookCopyRepository.save(copy));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<BookCopyResponse> getCopies(Long bookId) {
         if (!bookRepository.existsById(bookId)) {
@@ -69,7 +99,7 @@ public class BookCopyServiceImpl implements BookCopyService {
     private BookAvailabilityResponse availabilityFor(Long bookId) {
         return BookAvailabilityResponse.builder()
                 .bookId(bookId)
-                .totalCopies(bookCopyRepository.countByBookId(bookId))
+                .totalCopies(bookCopyRepository.countByBookIdAndStatusIn(bookId, COUNTED_COPY_STATUSES))
                 .availableCopies(bookCopyRepository.countByBookIdAndStatus(bookId, BookCopyStatus.AVAILABLE))
                 .loanedCopies(bookCopyRepository.countByBookIdAndStatus(bookId, BookCopyStatus.LOANED))
                 .reservedCopies(bookCopyRepository.countByBookIdAndStatus(bookId, BookCopyStatus.RESERVED))

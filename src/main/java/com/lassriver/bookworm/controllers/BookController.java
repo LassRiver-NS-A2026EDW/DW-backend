@@ -78,6 +78,11 @@ public class BookController {
         return new ResponseEntity<>(bookCopyService.createCopy(id), HttpStatus.CREATED);
     }
 
+    @DeleteMapping("/{id}/copies/{copyId}")
+    public ResponseEntity<BookCopyResponse> retireCopy(@PathVariable Long id, @PathVariable Long copyId) {
+        return ResponseEntity.ok(bookCopyService.retireCopy(id, copyId));
+    }
+
     @PostMapping
     public ResponseEntity<BookResponse> createBook(@Valid @RequestBody BookUpsertRequest request) {
         BookResponse response = bookService.createBook(request);
