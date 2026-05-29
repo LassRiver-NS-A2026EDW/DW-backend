@@ -23,6 +23,9 @@ public class ChatRequest {
     @Size(max = 2000, message = "La pregunta no puede superar 2000 caracteres")
     private String question;
 
+    @Size(max = 300, message = "La clave del proveedor IA no puede superar 300 caracteres")
+    private String providerApiKey;
+
     @Valid
     private List<ChatMessageRequest> history = new ArrayList<>();
 }

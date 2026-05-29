@@ -43,7 +43,7 @@ public class ChatServiceImpl implements ChatService {
 
         Thread.ofVirtual().start(() -> {
             try {
-                aiChatClient.stream(messages, chunk -> sendChunk(emitter, chunk));
+                aiChatClient.stream(messages, request.getProviderApiKey(), chunk -> sendChunk(emitter, chunk));
                 emitter.send(SseEmitter.event().data("[DONE]"));
                 emitter.complete();
             } catch (Exception ex) {
