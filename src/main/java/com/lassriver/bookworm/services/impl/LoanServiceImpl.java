@@ -38,6 +38,7 @@ public class LoanServiceImpl implements LoanService {
 
     private static final int MIN_LOAN_DURATION_MINUTES = 5;
     private static final int MAX_LOAN_DURATION_MINUTES = 10_080;
+    private static final int LOAN_COOLDOWN_HOURS = 24;
     private static final int MAX_ACTIVE_LOANS_PER_USER = 3;
     private static final int MAX_RENEWALS_PER_LOAN = 2;
     private static final List<LoanStatus> OPEN_LOAN_STATUSES = List.of(LoanStatus.ACTIVE, LoanStatus.OVERDUE);
@@ -213,10 +214,23 @@ public class LoanServiceImpl implements LoanService {
             throw new BusinessRuleException("Ya tienes un prestamo activo para este libro.");
         }
 
+        if (isLoanCooldownActive(user, book)) {
+            throw new BusinessRuleException("Debes esperar 24 horas despues de devolver este libro para volver a reservarlo.");
+        }
+
         long openLoans = loanRepository.countByUserIdAndStatusIn(user.getId(), OPEN_LOAN_STATUSES);
         if (openLoans >= MAX_ACTIVE_LOANS_PER_USER) {
             throw new BusinessRuleException("Has alcanzado el limite de prestamos activos.");
         }
+    }
+
+    private boolean isLoanCooldownActive(User user, Book book) {
+        LocalDateTime returnedAfter = LocalDateTime.now().minusHours(LOAN_COOLDOWN_HOURS);
+        return loanRepository.findFirstByUserIdAndBookIdAndStatusAndReturnedAtAfterOrderByReturnedAtDesc(
+                user.getId(),
+                book.getId(),
+                LoanStatus.RETURNED,
+                returnedAfter).isPresent();
     }
 
     private BookCopy getAvailableCopy(Book book) {

@@ -127,6 +127,32 @@ class LoanServiceImplTest {
     }
 
     @Test
+    void createLoan_WhenBookWasRecentlyReturned_ThrowsBusinessRuleException() {
+        User user = User.builder().id(1L).email("user@bookworm.com").build();
+        Book book = Book.builder().id(10L).status("ACTIVE").build();
+        Loan returnedLoan = Loan.builder()
+                .id(77L)
+                .user(user)
+                .book(book)
+                .status(LoanStatus.RETURNED)
+                .returnedAt(LocalDateTime.now().minusHours(2))
+                .build();
+        LoanCreateRequest request = new LoanCreateRequest();
+        request.setBookId(10L);
+        request.setDurationMinutes(60);
+
+        when(userRepository.findByEmail("user@bookworm.com")).thenReturn(Optional.of(user));
+        when(bookRepository.findLockedById(10L)).thenReturn(Optional.of(book));
+        when(loanRepository.existsByUserIdAndBookIdAndStatusIn(eq(1L), eq(10L), any())).thenReturn(false);
+        when(loanRepository.findFirstByUserIdAndBookIdAndStatusAndReturnedAtAfterOrderByReturnedAtDesc(
+                eq(1L), eq(10L), eq(LoanStatus.RETURNED), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(returnedLoan));
+
+        assertThrows(BusinessRuleException.class, () -> loanService.createLoan(request, "user@bookworm.com"));
+        verify(loanRepository, never()).save(any(Loan.class));
+    }
+
+    @Test
     void returnLoan_WhenLoanIsFromAnotherUser_ThrowsAccessDeniedException() {
         User requester = User.builder().id(1L).email("user@bookworm.com").build();
         User owner = User.builder().id(2L).email("other@bookworm.com").build();
